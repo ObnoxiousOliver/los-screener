@@ -9,17 +9,41 @@ export interface RectJSON extends JsonObject {
 }
 
 export class Rect extends TransferableObject {
-  x: number
-  y: number
-  width: number
-  height: number
+  private _x: number
+  public get x (): number {
+    return this._x
+  }
+  public set x (value: number) {
+    this._x = isNaN(value) ? 0 : value ?? 0
+  }
+  private _y: number
+  public get y (): number {
+    return this._y
+  }
+  public set y (value: number) {
+    this._y = isNaN(value) ? 0 : value ?? 0
+  }
+  private _width: number
+  public get width (): number {
+    return this._width
+  }
+  public set width (value: number) {
+    this._width = isNaN(value) ? 0 : value ?? 0
+  }
+  private _height: number
+  public get height (): number {
+    return this._height
+  }
+  public set height (value: number) {
+    this._height = isNaN(value) ? 0 : value ?? 0
+  }
 
   constructor(x?: number, y?: number, width?: number, height?: number) {
     super()
-    this.x = x ?? 0
-    this.y = y ?? 0
-    this.width = width ?? 0
-    this.height = height ?? 0
+    this._x = x ?? 0
+    this._y = y ?? 0
+    this._width = width ?? 0
+    this._height = height ?? 0
   }
 
   get left() { return this.x }

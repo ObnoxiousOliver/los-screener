@@ -1,12 +1,16 @@
 // import { deepProxy, unwrap } from '../helpers/DeepProxy'
 import { Canvas, CanvasJSON } from './Canvas'
-import { Component, ComponentJSON } from './Component'
+import { Component, ComponentFactory, ComponentJSON } from './Component'
 import { Playback } from './Playback'
 import { Scene, SceneJSON } from './Scene'
-import { WindowManager } from '../electron/main/WindowManager'
-import { Video } from './Video'
-import { Slot } from './Slot'
+import { WindowManager } from './WindowManager'
+import { Slot, SlotJSON } from './Slot'
+import { DefaultPlugin } from './default/defaultPlugin'
 import { Rect } from '../helpers/Rect'
+import { Text } from './default/Text'
+import { access, readFile } from 'fs/promises'
+import { getType as getMimeType } from 'mime'
+import { Video } from './default/Video'
 
 export class SceneManager {
   private scenes: Scene[] = []
@@ -69,12 +73,21 @@ export class SceneManager {
     //   }
     // })
 
+    ComponentFactory.registerPlugin(DefaultPlugin)
+
     const defaultCanvas = new Canvas()
     this.components.push(new Video({
-      name: 'Video',
-      src: 'https://www.w3schools.com/html/mov_bbb.mp4'
+      name: 'Image',
+      src: 'E:\\LoS 2023\\Untitled.mp4'
     }))
-    defaultCanvas.addChild(new Slot(new Rect(0, 0, 1280, 720), this.components[0].id))
+    defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[0].id))
+
+    this.components.push(new Text({
+      name: 'Text',
+      content: 'Hello World!'
+    }))
+    defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[1].id))
+
     this.canvases.push(defaultCanvas)
   }
 
@@ -169,7 +182,7 @@ export class SceneManager {
 
   // Canvases
   public getCanvases (): Canvas[] {
-    return this.canvases
+    return this.canvases.filter(c => c)
   }
 
   public getCanvas (id: string): Canvas | undefined {
@@ -194,14 +207,15 @@ export class SceneManager {
   public removeCanvas (id: string): void {
     const index = this.canvases.findIndex(c => c.id === id)
     if (index > -1) {
-      delete this.canvases[index]
+      this.canvases.splice(index, 1)
+    } else {
+      console.warn(`Canvas with id ${id} not found in SceneManager.`)
     }
 
     this.canvasUpdated(id, null)
   }
 
   // Components
-
   public getComponents (): Component[] {
     return this.components
   }
@@ -239,8 +253,84 @@ export class SceneManager {
     throw new Error('Not implemented.')
   }
 
+  // Media
+  private mediaCache: Record<string, {
+    value: string | null
+    promise: Promise<string | null> | null
+    components: string[]
+  }> = {}
+  public async requestMedia (componentId: string, src: string, noCache = false) {
+    console.log(`Requesting media "${src}" for component "${componentId}".`)
+
+    if (this.mediaCache[src]) {
+      if (!noCache && this.mediaCache[src].value) {
+        return this.mediaCache[src].value
+      } else if (this.mediaCache[src].promise) {
+        return await this.mediaCache[src].promise
+      } else {
+        delete this.mediaCache[src]
+        throw new Error('Unexpected cache value.')
+      }
+    }
+
+    const promise = (async () => {
+      const isUrl = src.startsWith('http://') || src.startsWith('https://')
+      if (isUrl) {
+        console.log(`Fetching URL "${src}".`)
+        try {
+          const result = await fetch(src)
+          const blob = await result.blob()
+          const arrayBuffer = await blob.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+          const dataUrl = `data:${result.headers.get('content-type')};base64,${buffer.toString('base64')}`
+          this.mediaCache[src] = {
+            value: dataUrl,
+            promise: null,
+            components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
+          }
+          return dataUrl
+        } catch (e) {
+          console.warn(`Error fetching URL "${src}".`)
+
+          delete this.mediaCache[src]
+          return null
+        }
+      } else {
+        try {
+          await access(src)
+
+          console.log(`Reading File "${src}".`)
+          const buffer = await readFile(src)
+          const mimeType = getMimeType(src)
+          const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`
+          this.mediaCache[src] = {
+            value: dataUrl,
+            promise: null,
+            components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
+          }
+
+          return dataUrl
+        } catch (e) {
+          console.warn(`Error reading File "${src}".`)
+
+          delete this.mediaCache[src]
+          return null
+        }
+      }
+    })()
+
+    this.mediaCache[src] = {
+      value: this.mediaCache[src]?.value ?? null,
+      promise,
+      components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
+    }
+
+    return await promise
+  }
+
   // JSON
   public updateCanvasWithJSON (json: CanvasJSON): void {
+    console.log(json)
     let canvas = this.canvases.find(c => c.id === json.id)
     if (!canvas) {
       canvas = Canvas.fromJSON(json)
@@ -274,6 +364,21 @@ export class SceneManager {
     if (Object.keys(this.activeScenes).includes(scene.id)) {
       this.activeSceneUpdated()
     }
+  }
+
+  public updateSlotWithJSON (canvasId: string, json: SlotJSON): void {
+    const canvas = this.canvases.find(c => c.id === canvasId)
+    if (!canvas) {
+      throw new Error(`Canvas with id ${canvasId} not found in SceneManager.`)
+    }
+
+    const slot = canvas.children?.find(s => s.id === json.id)
+    if (!slot) {
+      throw new Error(`Slot with id ${json.id} not found in SceneManager.`)
+    }
+
+    slot.fromJSON(json)
+    this.canvasUpdated(canvasId, canvas)
   }
 
   public toJSON () {

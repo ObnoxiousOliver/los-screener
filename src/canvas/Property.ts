@@ -2,7 +2,10 @@ export type PropertyOptions = {
   type: 'select'
   options: { label: string, value: string }[]
 } | {
-  type: 'text'
+  type: 'text',
+  updateOnBlur?: boolean
+} | {
+  type: 'textbox'
 } | {
   type: 'number'
 } | {
@@ -45,10 +48,10 @@ export class Property <T> {
     getValue?: () => T,
     setValue?: (value: T) => void,
     order?: number) {
-    this.options = options
-    this.label = label ?? ''
-    this.order = order
-    this.getValue = getValue
-    this.setValue = setValue
+      this.options = options
+      this.label = label ?? ''
+      this.order = order
+      this.getValue = getValue
+      this.setValue = setValue
   }
 }

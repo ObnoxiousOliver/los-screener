@@ -95,15 +95,18 @@ setTimeout(removeLoading, 4999)
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { BridgeType } from '../../BridgeType'
+import { Rect } from '../../helpers/Rect'
+import { Window, WindowJSON } from '../../canvas/Window'
 
 const bridge: BridgeType = {
+  // Canvas Management
   setCanvas(canvas) {
     ipcRenderer.send('setCanvas', canvas)
   },
   removeCanvas(id) {
     ipcRenderer.send('removeCanvas', id)
   },
-  onCanvasUpdate(callback) {
+  onCanvasUpdated(callback) {
     ipcRenderer.on('canvasUpdate', (event, id, canvas) => {
       callback(id, canvas)
     })
@@ -111,18 +114,60 @@ const bridge: BridgeType = {
   getCanvases() {
     return ipcRenderer.invoke('getCanvases')
   },
+
+  // Component Management
   setComponent(component) {
     ipcRenderer.send('setComponent', component)
   },
-  onComponentUpdate(callback) {
+  onComponentUpdated(callback) {
     ipcRenderer.on('componentUpdate', (event, id, component) => {
       callback(id, component)
     })
   },
   getComponents() {
     return ipcRenderer.invoke('getComponents')
+  },
+  invokeComponentAction(id, action, ...args) {
+    return ipcRenderer.invoke('invokeComponentAction', id, action, args)
+  },
+
+  // Slot Management
+  setSlot(canvasId, slot) {
+    ipcRenderer.send('setSlot', canvasId, slot)
+  },
+
+  // Window Management
+  setWindow(window) {
+    ipcRenderer.send('setWindow', window)
+  },
+  removeWindow(canvasId) {
+    ipcRenderer.send('removeWindow', canvasId)
+  },
+  onWindowsUpdated(callback) {
+    ipcRenderer.on('windowUpdate', (event, windows) => {
+      windows = Object.fromEntries(
+        Object.entries(windows)
+          .map(([id, window]) => [
+            id, Rect.fromJSON(window)
+          ]))
+      callback(windows)
+    })
+  },
+  async getWindows() {
+    const windows: WindowJSON[] = await ipcRenderer.invoke('getWindows')
+    return windows.map(w => Window.fromJSON(w))
+  },
+  showWindows() {
+    ipcRenderer.send('showWindows')
+  },
+  hideWindows() {
+    ipcRenderer.send('hideWindows')
+  },
+
+  // Media Management
+  requestMedia(id, src) {
+    return ipcRenderer.invoke('requestMedia', id, src)
   }
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)
-

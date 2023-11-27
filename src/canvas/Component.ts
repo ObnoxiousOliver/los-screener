@@ -1,6 +1,7 @@
 import { id } from '../helpers/Id'
 import { Property } from './Property'
 import { JsonObject, TransferableObject } from './TransferableObject'
+import { BridgeType } from '../BridgeType'
 
 export interface ComponentOptions {
   id: string
@@ -13,7 +14,7 @@ export interface ComponentJSON extends JsonObject {
   type: string
 }
 
-export const ComponentMap: Record<string, (json: any) => any> = {}
+export const ComponentMap: Record<string, (json: JsonObject) => Component> = {}
 
 export abstract class Component extends TransferableObject {
   id: string
@@ -30,16 +31,18 @@ export abstract class Component extends TransferableObject {
 
   public abstract render (): HTMLElement
 
-  getProperties (updateFn?: () => void): Property<any>[] {
+  getProperties (updateFn: (json: ComponentJSON) => void): Property<any>[] {
     return [
       new Property(
         { type: 'text' },
         'Name',
         () => this.name,
         (value) => {
-          this.name = value
-          updateFn?.()
-        }
+          const json = this.toJSON()
+          json.name = value
+          updateFn?.(json)
+        },
+        -1
       )
     ]
   }
@@ -59,8 +62,39 @@ export abstract class Component extends TransferableObject {
   }
 
   static fromJSON (json: ComponentJSON): Component {
-    const component = ComponentMap[json.type]
-    if (!component) throw new Error(`Component type ${json.type} not found`)
-    return component(json)
+    const fromJSON = ComponentMap[json.type]
+    if (!fromJSON) {
+      throw new Error(`Component type ${json.type} not found in ComponentMap.`)
+    }
+    return fromJSON(json)
+  }
+}
+
+declare const bridge: BridgeType
+export async function requestMedia (id: string, src: string) {
+  if (!document) throw new Error('Method not available in this environment. Must be in a browser.')
+
+  return await bridge.requestMedia(id, src)
+}
+
+export interface Plugin {
+  name: string
+  components: {
+    type: string
+    fromJSON: (json: JsonObject) => any
+  }[]
+}
+
+export class ComponentFactory {
+  public static plugins: Plugin[] = []
+
+  public static registerPlugin (...plugins: Plugin[]): void {
+    ComponentFactory.plugins.push(...plugins)
+
+    for (const plugin of plugins) {
+      for (const component of plugin.components) {
+        ComponentMap[component.type] = component.fromJSON
+      }
+    }
   }
 }

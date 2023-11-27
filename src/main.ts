@@ -1,12 +1,14 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 
-import 'vuetify/styles'
+import './main.scss'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
-import { Canvas } from './canvas/Canvas'
+import { CanvasJSON } from './canvas/Canvas'
 import { BridgeType } from './BridgeType'
+import { SlotJSON } from './canvas/Slot'
+import { ComponentJSON } from './canvas/Component'
 
 declare const bridge: BridgeType
 
@@ -25,6 +27,14 @@ createApp(App)
     postMessage({ payload: 'removeLoading' }, '*')
   })
 
-export function sendCanvasUpdate (id: string, canvas: Canvas): void {
-  bridge.setCanvas(canvas.toJSON())
+export function sendCanvasUpdate (id: string, canvas: CanvasJSON): void {
+  bridge.setCanvas(canvas)
+}
+
+export function sendComponentUpdate (component: ComponentJSON): void {
+  bridge.setComponent(component)
+}
+
+export function sendSlotUpdate (canvasId: string, slot: SlotJSON): void {
+  bridge.setSlot(canvasId, slot)
 }

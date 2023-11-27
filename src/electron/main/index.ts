@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { release } from 'node:os'
 import { join } from 'node:path'
-import { WindowManager } from './WindowManager'
+import { WindowManager } from '../../canvas/WindowManager'
 
 // The built directory structure
 //
@@ -52,15 +52,14 @@ async function createWindow() {
       // Consider using contextBridge.exposeInMainWorld
       // Read more on https://www.electronjs.org/docs/latest/tutorial/context-isolation
       nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false
+      contextIsolation: true
     }
   })
 
   if (process.env.VITE_DEV_SERVER_URL) { // electron-vite-vue#298
     mainWin.loadURL(url)
     // Open devTool if the app is not packaged
-    mainWin.webContents.openDevTools()
+    // mainWin.webContents.openDevTools()
   } else {
     mainWin.loadFile(indexHtml)
   }

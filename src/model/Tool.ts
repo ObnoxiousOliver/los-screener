@@ -1,1 +1,0 @@
-// export type Tool = 'select' | 'move' | 'resize' | 'rotate'

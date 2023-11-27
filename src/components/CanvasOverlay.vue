@@ -8,16 +8,16 @@
       :key="i"
       :class="['canvas-overlay__element-wrapper', {
         'canvas-overlay__element-wrapper--selected': selection.includes(slot),
-        'canvas-overlay__element-wrapper--positionable': (selectedComponents[slot.componentId] as Component)?.positionable
+        'canvas-overlay__element-wrapper--positionable': selection.length === 1 && (selectedComponents[slot.componentId] as Component)?.positionable
       }]"
       :style="{
         transform: `scale(${1 / scale})`,
         transformOrigin: 'top left',
         position: 'absolute',
-        top: -elementPadding / scale + (slot.rect.y + slot.crop.top) + 'px',
-        left: -elementPadding / scale + (slot.rect.x + slot.crop.left) + 'px',
-        width: elementPadding * 2 + (slot.rect.width - slot.crop.right - slot.crop.left) * scale + 'px',
-        height: elementPadding * 2 + (slot.rect.height - slot.crop.bottom - slot.crop.top) * scale + 'px'
+        top: -elementPadding / scale + ((displayRect ?? slot.rect).y + (displayCrop ?? slot.crop).top) + 'px',
+        left: -elementPadding / scale + ((displayRect ?? slot.rect).x + (displayCrop ?? slot.crop).left) + 'px',
+        width: elementPadding * 2 + ((displayRect ?? slot.rect).width - (displayCrop ?? slot.crop).right - (displayCrop ?? slot.crop).left) * scale + 'px',
+        height: elementPadding * 2 + ((displayRect ?? slot.rect).height - (displayCrop ?? slot.crop).bottom - (displayCrop ?? slot.crop).top) * scale + 'px'
       }"
     >
       <div
@@ -30,21 +30,21 @@
           position: 'absolute',
           left: elementPadding + 'px',
           top: elementPadding + 'px',
-          width: (slot.rect.width - slot.crop.right - slot.crop.left) * scale + 'px',
-          height: (slot.rect.height - slot.crop.bottom - slot.crop.top) * scale + 'px'
+          width: ((displayRect ?? slot.rect).width - (displayCrop ?? slot.crop).right - (displayCrop ?? slot.crop).left) * scale + 'px',
+          height: ((displayRect ?? slot.rect).height - (displayCrop ?? slot.crop).bottom - (displayCrop ?? slot.crop).top) * scale + 'px'
         }"
       >
-        <template v-if="selection.includes(slot) && (selectedComponents[slot.componentId] as Component)?.positionable">
+        <template v-if="selection.length === 1 && selection.includes(slot) && (selectedComponents[slot.componentId] as Component)?.positionable">
           <div
             class="canvas-overlay__element__move"
             @pointerdown="(e) => onPointerdown(e, 'move')"
           />
           <div
             :class="['canvas-overlay__element__resize-handles', {
-              'canvas-overlay__element__resize-handles--crop-t': slot.crop.top > 0,
-              'canvas-overlay__element__resize-handles--crop-r': slot.crop.right > 0,
-              'canvas-overlay__element__resize-handles--crop-b': slot.crop.bottom > 0,
-              'canvas-overlay__element__resize-handles--crop-l': slot.crop.left > 0
+              'canvas-overlay__element__resize-handles--crop-t': (displayCrop ?? slot.crop).top > 0,
+              'canvas-overlay__element__resize-handles--crop-r': (displayCrop ?? slot.crop).right > 0,
+              'canvas-overlay__element__resize-handles--crop-b': (displayCrop ?? slot.crop).bottom > 0,
+              'canvas-overlay__element__resize-handles--crop-l': (displayCrop ?? slot.crop).left > 0
             }]"
           >
             <div
@@ -95,15 +95,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed , ref , Ref } from 'vue'
 import { Canvas } from '../canvas/Canvas'
 import { Rect } from '../helpers/Rect'
 import { Vec2 } from '../helpers/Vec2'
 import { Component } from '../canvas/Component'
-import { Slot } from '../canvas/Slot'
+import { Slot, SlotJSON } from '../canvas/Slot'
 import { TransformMatrix } from '../helpers/TransformMatrix'
 import { Margin } from '../helpers/Margin'
-import { sendCanvasUpdate } from '../main'
+import { sendSlotUpdate } from '../main'
 
 const props = defineProps<{
   canvas: Canvas,
@@ -141,6 +141,8 @@ const selectedComponents = computed(() => Object.fromEntries(props.selection.map
     : props.components.find(c => c.id === slot.componentId) ?? null
   ])))
 
+const displayRect = ref<Rect | null>(null) as Ref<Rect | null>
+const displayCrop = ref<Margin | null>(null) as Ref<Margin | null>
 function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't' | 'r' | 'b' | 'l' | 'move') {
   if (Object.keys(selectedComponents.value).length !== 1) return
   if (e.button !== 0) return
@@ -277,6 +279,8 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
   }
 
   const apply = () => {
+    let slot: SlotJSON
+
     if (cropping) {
       const newCrop = Margin.clone(crop)
       newCrop.top += newRect.y - rect.y
@@ -289,34 +293,45 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       newCrop.bottom = Math.round(Math.max(0, newCrop.bottom))
       newCrop.left = Math.round(Math.max(0, newCrop.left))
 
-      element.crop = newCrop
-      element.rect = rect
-    } else {
-      element.crop = crop
+      slot = element.toJSON()
+      slot.crop = newCrop.toJSON()
+      slot.rect = rect.toJSON()
 
+      displayRect.value = rect
+      displayCrop.value = newCrop
+    } else {
       newRect.x = Math.round(newRect.x)
       newRect.y = Math.round(newRect.y)
       newRect.width = Math.round(newRect.width)
       newRect.height = Math.round(newRect.height)
 
-      element.rect = newRect
+      slot = element.toJSON()
+      slot.crop = crop.toJSON()
+      slot.rect = newRect.toJSON()
 
       if (flipX && flipY) {
-        element.transformMatrix = startMatrix.scale(-1, -1)
+        slot.transformMatrix = startMatrix.scale(-1, -1).toJSON()
       } else if (flipX) {
-        element.transformMatrix = startMatrix.scale(-1, 1)
+        slot.transformMatrix = startMatrix.scale(-1, 1).toJSON()
       } else if (flipY) {
-        element.transformMatrix = startMatrix.scale(1, -1)
+        slot.transformMatrix = startMatrix.scale(1, -1).toJSON()
+      } else {
+        slot.transformMatrix = startMatrix.toJSON()
       }
+
+      displayRect.value = newRect
+      displayCrop.value = crop
     }
 
-    sendCanvasUpdate(props.canvas.id, props.canvas)
+    sendSlotUpdate(props.canvas.id, slot)
   }
 
   const stop = () => {
     window.removeEventListener('pointermove', resize)
     window.removeEventListener('pointerup', stop)
     apply()
+    displayCrop.value = null
+    displayRect.value = null
   }
 
   window.addEventListener('pointermove', resize)
@@ -340,10 +355,13 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       }
     }
 
-    &--selected:not(&--positionable) {
+    &--selected {
       z-index: 1;
-      .canvas-overlay__element {
-        outline: 2px solid rgb(255, 0, 183, 0.5) !important;
+
+      &:not(.canvas-overlay__element-wrapper--positionable) {
+        .canvas-overlay__element {
+          outline: 2px solid rgb(255, 0, 183, 0.5) !important;
+        }
       }
     }
   }
@@ -369,33 +387,47 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       position: absolute;
       inset: 0;
       z-index: 1;
-      border: rgb(255, 0, 183) solid 2px;
+
+      &::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        border: rgb(255, 0, 183) solid 2px;
+      }
 
       $crop-color: rgb(16, 159, 113);
 
       &--crop-t {
-        border-top-color: $crop-color;
+        &::before {
+          border-top-color: $crop-color;
+        }
         .canvas-overlay__element__resize-edge--b .canvas-overlay__element__resize-handle {
           border-color: $crop-color;
         }
       }
 
       &--crop-r {
-        border-right-color: $crop-color;
+        &::before {
+          border-right-color: $crop-color;
+        }
         .canvas-overlay__element__resize-edge--r .canvas-overlay__element__resize-handle {
           border-color: $crop-color;
         }
       }
 
       &--crop-b {
-        border-bottom-color: $crop-color;
+        &::before {
+          border-bottom-color: $crop-color;
+        }
         .canvas-overlay__element__resize-edge--b .canvas-overlay__element__resize-handle {
-          border-color: $crop-color !important;
+          border-color: $crop-color;
         }
       }
 
       &--crop-l {
-        border-left-color: $crop-color;
+        &::before {
+          border-left-color: $crop-color;
+        }
         .canvas-overlay__element__resize-edge--l .canvas-overlay__element__resize-handle {
           border-color: $crop-color;
         }
@@ -409,37 +441,37 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       height: $handle-size;
       border: rgb(255, 0, 183) solid 1px;
       background: white;
-      border-radius: $handle-size / 2;
+      border-radius: $handle-size * 0.5;
       z-index: 1;
 
       &::before {
         content: '';
         position: absolute;
-        inset: -$handle-size / 2;
+        inset: -$handle-size * 0.5;
         z-index: 2;
       }
 
       &--tl {
-        top: -$handle-size / 2;
-        left: -$handle-size / 2;
+        top: -$handle-size * 0.5;
+        left: -$handle-size * 0.5;
         cursor: nwse-resize;
       }
 
       &--tr {
-        top: -$handle-size / 2;
-        right: -$handle-size / 2;
+        top: -$handle-size * 0.5;
+        right: -$handle-size * 0.5;
         cursor: nesw-resize;
       }
 
       &--br {
-        bottom: -$handle-size / 2;
-        right: -$handle-size / 2;
+        bottom: -$handle-size * 0.5;
+        right: -$handle-size * 0.5;
         cursor: nwse-resize;
       }
 
       &--bl {
-        bottom: -$handle-size / 2;
-        left: -$handle-size / 2;
+        bottom: -$handle-size * 0.5;
+        left: -$handle-size * 0.5;
         cursor: nesw-resize;
       }
     }
@@ -450,7 +482,7 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       z-index: 1;
 
       &--t {
-        top: -$handle-size / 2;
+        top: -$handle-size * 0.5;
         left: $handle-size;
         right: $handle-size;
         height: $handle-size;
@@ -458,44 +490,44 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
 
         .canvas-overlay__element__resize-handle {
           left: 50%;
-          height: $handle-size / 2;
-          top: $handle-size / 4;
+          height: $handle-size * 0.5;
+          top: $handle-size * 0.25;
           transform: translateX(-50%);
         }
       }
 
       &--r {
         top: $handle-size;
-        right: -$handle-size / 2;
+        right: -$handle-size * 0.5;
         bottom: $handle-size;
         width: $handle-size;
         cursor: ew-resize;
 
         .canvas-overlay__element__resize-handle {
           top: 50%;
-          width: $handle-size / 2;
-          right: $handle-size / 4;
+          width: $handle-size * 0.5;
+          right: $handle-size * 0.25;
           transform: translateY(-50%);
         }
       }
 
       &--l {
         top: $handle-size;
-        left: -$handle-size / 2;
+        left: -$handle-size * 0.5;
         bottom: $handle-size;
         width: $handle-size;
         cursor: ew-resize;
 
         .canvas-overlay__element__resize-handle {
           top: 50%;
-          width: $handle-size / 2;
-          left: $handle-size / 4;
+          width: $handle-size * 0.5;
+          left: $handle-size * 0.25;
           transform: translateY(-50%);
         }
       }
 
       &--b {
-        bottom: -$handle-size / 2;
+        bottom: -$handle-size * 0.5;
         left: $handle-size;
         right: $handle-size;
         height: $handle-size;
@@ -503,8 +535,8 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
 
         .canvas-overlay__element__resize-handle {
           left: 50%;
-          height: $handle-size / 2;
-          bottom: $handle-size / 4;
+          height: $handle-size * 0.5;
+          bottom: $handle-size * 0.25;
           transform: translateX(-50%);
         }
       }
