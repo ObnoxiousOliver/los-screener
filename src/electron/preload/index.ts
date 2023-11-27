@@ -95,34 +95,32 @@ setTimeout(removeLoading, 4999)
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { BridgeType } from '../../BridgeType'
-import { PlaybackEntryStatic } from '../../canvas/Playback'
 
 const bridge: BridgeType = {
-  setCanvas(canvasStatic) {
-    ipcRenderer.send('setCanvas', canvasStatic)
+  setCanvas(canvas) {
+    ipcRenderer.send('setCanvas', canvas)
   },
-  removeCanvas(id: string) {
+  removeCanvas(id) {
     ipcRenderer.send('removeCanvas', id)
   },
   onCanvasUpdate(callback) {
-    ipcRenderer.on('canvasUpdate', (event, canvas) => {
-      callback(canvas)
+    ipcRenderer.on('canvasUpdate', (event, id, canvas) => {
+      callback(id, canvas)
     })
   },
   getCanvases() {
     return ipcRenderer.invoke('getCanvases')
   },
-  createBrowserWindows(createBrowserWindows: boolean) {
-    ipcRenderer.send('createBrowserWindows', createBrowserWindows)
+  setComponent(component) {
+    ipcRenderer.send('setComponent', component)
   },
-  setPlayback(id: string, entries: PlaybackEntryStatic[]) {
-    ipcRenderer.send('setPlayback', id, entries)
+  onComponentUpdate(callback) {
+    ipcRenderer.on('componentUpdate', (event, id, component) => {
+      callback(id, component)
+    })
   },
-  getPlaybacks() {
-    return ipcRenderer.invoke('getPlaybacks')
-  },
-  startPlayback(id: string) {
-    ipcRenderer.send('startPlayback', id)
+  getComponents() {
+    return ipcRenderer.invoke('getComponents')
   }
 }
 

@@ -4,293 +4,319 @@
     class="canvas-overlay"
   >
     <div
-      v-for="(element, i) in flatElements"
+      v-for="(slot, i) in slots"
       :key="i"
       :class="['canvas-overlay__element-wrapper', {
-        'canvas-overlay__element-wrapper--selected': selected(element.element)
+        'canvas-overlay__element-wrapper--selected': selection.includes(slot),
+        'canvas-overlay__element-wrapper--positionable': (selectedComponents[slot.componentId] as Component)?.positionable
       }]"
       :style="{
         transform: `scale(${1 / scale})`,
         transformOrigin: 'top left',
         position: 'absolute',
-        left: element.rect.x + 'px',
-        top: element.rect.y + 'px',
-        width: element.rect.width * scale + 'px',
-        height: element.rect.height * scale + 'px'
+        top: -elementPadding / scale + (slot.rect.y + slot.crop.top) + 'px',
+        left: -elementPadding / scale + (slot.rect.x + slot.crop.left) + 'px',
+        width: elementPadding * 2 + (slot.rect.width - slot.crop.right - slot.crop.left) * scale + 'px',
+        height: elementPadding * 2 + (slot.rect.height - slot.crop.bottom - slot.crop.top) * scale + 'px'
       }"
     >
       <div
         class="canvas-overlay__element-bg"
-        @click="(e) => select(element.element, e)"
+        @click="(e) => select(slot, e)"
       />
       <div
         class="canvas-overlay__element"
         :style="{
           position: 'absolute',
-          left: (((selected(element.element) ? newRect : null) ?? element.element.rect).x - element.rect.x) * scale + 'px',
-          top: (((selected(element.element) ? newRect : null) ?? element.element.rect).y - element.rect.y) * scale + 'px',
-          width: ((selected(element.element) ? newRect : null) ?? element.element.rect).width * scale + 'px',
-          height: ((selected(element.element) ? newRect : null) ?? element.element.rect).height* scale + 'px'
+          left: elementPadding + 'px',
+          top: elementPadding + 'px',
+          width: (slot.rect.width - slot.crop.right - slot.crop.left) * scale + 'px',
+          height: (slot.rect.height - slot.crop.bottom - slot.crop.top) * scale + 'px'
         }"
       >
-        <div
-          v-if="selected(element.element) && element.element.moveable"
-          class="canvas-overlay__element__move"
-          @pointerdown="(e) => onPointerdown(e, 'move')"
-        />
-        <div
-          v-if="selected(element.element) && element.element.resizeable"
-          class="canvas-overlay__element__resize-handles"
-        >
+        <template v-if="selection.includes(slot) && (selectedComponents[slot.componentId] as Component)?.positionable">
           <div
-            v-if="element.element.resizeable === 'xy'"
-            class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--tl"
-            @pointerdown="(e) => onPointerdown(e, 'tl')"
+            class="canvas-overlay__element__move"
+            @pointerdown="(e) => onPointerdown(e, 'move')"
           />
           <div
-            v-if="element.element.resizeable === 'xy'"
-            class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--tr"
-            @pointerdown="(e) => onPointerdown(e, 'tr')"
-          />
-          <div
-            v-if="element.element.resizeable === 'xy'"
-            class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--br"
-            @pointerdown="(e) => onPointerdown(e, 'br')"
-          />
-          <div
-            v-if="element.element.resizeable === 'xy'"
-            class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--bl"
-            @pointerdown="(e) => onPointerdown(e, 'bl')"
-          />
-          <div
-            v-if="(['x', 'y', 'xy'] as Resizeable[]).includes(element.element.resizeable)"
-            class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--t"
-            @pointerdown="(e) => onPointerdown(e, 't')"
+            :class="['canvas-overlay__element__resize-handles', {
+              'canvas-overlay__element__resize-handles--crop-t': slot.crop.top > 0,
+              'canvas-overlay__element__resize-handles--crop-r': slot.crop.right > 0,
+              'canvas-overlay__element__resize-handles--crop-b': slot.crop.bottom > 0,
+              'canvas-overlay__element__resize-handles--crop-l': slot.crop.left > 0
+            }]"
           >
-            <div class="canvas-overlay__element__resize-handle" />
+            <div
+              class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--tl"
+              @pointerdown="(e) => onPointerdown(e, 'tl')"
+            />
+            <div
+              class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--tr"
+              @pointerdown="(e) => onPointerdown(e, 'tr')"
+            />
+            <div
+              class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--br"
+              @pointerdown="(e) => onPointerdown(e, 'br')"
+            />
+            <div
+              class="canvas-overlay__element__resize-handle canvas-overlay__element__resize-handle--bl"
+              @pointerdown="(e) => onPointerdown(e, 'bl')"
+            />
+            <div
+              class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--t"
+              @pointerdown="(e) => onPointerdown(e, 't')"
+            >
+              <div class="canvas-overlay__element__resize-handle" />
+            </div>
+            <div
+              class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--r"
+              @pointerdown="(e) => onPointerdown(e, 'r')"
+            >
+              <div class="canvas-overlay__element__resize-handle" />
+            </div>
+            <div
+              class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--l"
+              @pointerdown="(e) => onPointerdown(e, 'l')"
+            >
+              <div class="canvas-overlay__element__resize-handle" />
+            </div>
+            <div
+              class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--b"
+              @pointerdown="(e) => onPointerdown(e, 'b')"
+            >
+              <div class="canvas-overlay__element__resize-handle" />
+            </div>
           </div>
-          <div
-            v-if="(['x', 'y', 'xy'] as Resizeable[]).includes(element.element.resizeable)"
-            class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--r"
-            @pointerdown="(e) => onPointerdown(e, 'r')"
-          >
-            <div class="canvas-overlay__element__resize-handle" />
-          </div>
-          <div
-            v-if="(['x', 'y', 'xy'] as Resizeable[]).includes(element.element.resizeable)"
-            class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--l"
-            @pointerdown="(e) => onPointerdown(e, 'l')"
-          >
-            <div class="canvas-overlay__element__resize-handle" />
-          </div>
-          <div
-            v-if="(['x', 'y', 'xy'] as Resizeable[]).includes(element.element.resizeable)"
-            class="canvas-overlay__element__resize-edge canvas-overlay__element__resize-edge--b"
-            @pointerdown="(e) => onPointerdown(e, 'b')"
-          >
-            <div class="canvas-overlay__element__resize-handle" />
-          </div>
-        </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed , ref } from 'vue'
-import { Canvas, CanvasStatic } from '../canvas/Canvas'
-import { ComponentStatic, Resizeable } from '../canvas/Component'
+import { computed } from 'vue'
+import { Canvas } from '../canvas/Canvas'
 import { Rect } from '../helpers/Rect'
 import { Vec2 } from '../helpers/Vec2'
+import { Component } from '../canvas/Component'
+import { Slot } from '../canvas/Slot'
+import { TransformMatrix } from '../helpers/TransformMatrix'
+import { Margin } from '../helpers/Margin'
+import { sendCanvasUpdate } from '../main'
 
 const props = defineProps<{
-  canvas: CanvasStatic,
-  selectedElements: ComponentStatic[],
+  canvas: Canvas,
+  components: Component[],
+  selection: Slot[],
   scale: number
 }>()
 const emit = defineEmits(['select'])
 
-function select (element: ComponentStatic, e: MouseEvent) {
-  if (!props.selectedElements.includes(element)) {
+const elementPadding = 10
+const slots = computed(() => [
+  new Slot(
+    new Rect(0, 0, props.canvas.size.x, props.canvas.size.y),
+    props.canvas.id
+  ),
+  ...props.canvas.children
+])
+
+function select (slot: Slot, e: MouseEvent) {
+  if (!props.selection.includes(slot)) {
     if (e.shiftKey) {
-      emit('select', element, 'multi')
+      emit('select', slot, 'multi')
     } else {
-      emit('select', element, 'single')
+      emit('select', slot, 'single')
     }
   } else {
-    emit('select', element, 'remove')
+    emit('select', slot, 'remove')
   }
 }
 
-const flatElements= computed(() => {
-  const rects: {
-    rect: Rect
-    element: ComponentStatic
-  }[] = []
+const selectedComponents = computed(() => Object.fromEntries(props.selection.map(slot => [
+  slot.componentId,
+  slot.componentId === props.canvas.id
+    ? props.canvas
+    : props.components.find(c => c.id === slot.componentId) ?? null
+  ])))
 
-  function traverse (child: ComponentStatic) {
-    let padding = 10
-    if (child instanceof Canvas) {
-      padding = 20
-      rects.push({
-        rect: new Rect(-padding, -padding, child.rect.width + padding * 2, child.rect.height + padding * 2),
-        element: child
-      })
-    } else {
-      rects.push({
-        rect: new Rect(child.rect.x - padding, child.rect.y - padding, child.rect.width + padding * 2, child.rect.height + padding * 2),
-        element: child
-      })
-    }
-
-    if ('children' in child) {
-      (child.children as ComponentStatic[]).forEach(traverse)
-    }
-  }
-
-  traverse(props.canvas)
-  return rects
-})
-
-function selected (element: ComponentStatic) {
-  return props.selectedElements.includes(element)
-}
-
-const newRect = ref<Rect>()
 function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't' | 'r' | 'b' | 'l' | 'move') {
+  if (Object.keys(selectedComponents.value).length !== 1) return
   if (e.button !== 0) return
+
   e.preventDefault()
   e.stopPropagation()
 
-  const element = props.selectedElements[0]
+  const element = props.selection[0]
   if (!element) {
     console.warn('No element selected')
     return
   }
 
+  let cropping = e.ctrlKey
   const rect = Rect.clone(element.rect)
+  const crop = Margin.clone(element.crop)
   const start = new Vec2(e.clientX, e.clientY)
-  const startFlipX = element.flipX
-  const startFlipY = element.flipY
+  const startMatrix = TransformMatrix.clone(element.transformMatrix)
 
-  newRect.value = Rect.clone(rect)
+  let newRect = Rect.clone(rect)
+  let flipX = false
+  let flipY = false
+
   const resize = (e: PointerEvent) => {
-    const delta = new Vec2(e.clientX, e.clientY).sub(start).mul(1 / props.scale)
-    newRect.value = Rect.clone(rect)
+    cropping = e.ctrlKey
 
-    console.log(rect)
+    const delta = new Vec2(e.clientX, e.clientY).sub(start).mul(1 / props.scale)
+    newRect = Rect.clone(rect)
 
     if (handle === 'move') {
-      newRect.value.x += delta.x
-      newRect.value.y += delta.y
+      newRect.x += delta.x
+      newRect.y += delta.y
     }
 
     const preserveAspect = e.shiftKey
     const center = e.altKey
-    let flipX = false
-    let flipY = false
 
     if (handle === 'tl') {
-      newRect.value.x += delta.x * (center ? 2 : 1)
-      newRect.value.y += delta.y * (center ? 2 : 1)
-      newRect.value.width -= delta.x * (center ? 2 : 1)
-      newRect.value.height -= delta.y * (center ? 2 : 1)
+      newRect.x += delta.x * (center ? 2 : 1)
+      newRect.y += delta.y * (center ? 2 : 1)
+      newRect.width -= delta.x * (center ? 2 : 1)
+      newRect.height -= delta.y * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.height = newRect.value.width / rect.width * rect.height
-        newRect.value.y = rect.y + rect.height - newRect.value.height
+        newRect.height = newRect.width / rect.width * rect.height
+        newRect.y = rect.y + rect.height - newRect.height
       }
     }
 
     if (handle === 'tr') {
-      newRect.value.y += delta.y * (center ? 2 : 1)
-      newRect.value.width += delta.x * (center ? 2 : 1)
-      newRect.value.height -= delta.y * (center ? 2 : 1)
+      newRect.y += delta.y * (center ? 2 : 1)
+      newRect.width += delta.x * (center ? 2 : 1)
+      newRect.height -= delta.y * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.height = newRect.value.width / rect.width * rect.height
-        newRect.value.y = rect.y + rect.height - newRect.value.height
+        newRect.height = newRect.width / rect.width * rect.height
+        newRect.y = rect.y + rect.height - newRect.height
       }
     }
 
     if (handle === 'br') {
-      newRect.value.width += delta.x * (center ? 2 : 1)
-      newRect.value.height += delta.y * (center ? 2 : 1)
+      newRect.width += delta.x * (center ? 2 : 1)
+      newRect.height += delta.y * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.height = newRect.value.width / rect.width * rect.height
+        newRect.height = newRect.width / rect.width * rect.height
       }
     }
 
     if (handle === 'bl') {
-      newRect.value.x += delta.x * (center ? 2 : 1)
-      newRect.value.width -= delta.x * (center ? 2 : 1)
-      newRect.value.height += delta.y * (center ? 2 : 1)
+      newRect.x += delta.x * (center ? 2 : 1)
+      newRect.width -= delta.x * (center ? 2 : 1)
+      newRect.height += delta.y * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.height = newRect.value.width / rect.width * rect.height
+        newRect.height = newRect.width / rect.width * rect.height
       }
     }
 
     if (handle === 't') {
-      newRect.value.y += delta.y * (center ? 2 : 1)
-      newRect.value.height -= delta.y * (center ? 2 : 1)
+      newRect.y += delta.y * (center ? 2 : 1)
+      newRect.height -= delta.y * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.width = newRect.value.height / rect.height * rect.width
-        newRect.value.y = rect.y + rect.height - newRect.value.height
-        newRect.value.x = rect.x + (rect.width - newRect.value.width) / 2
+        newRect.width = newRect.height / rect.height * rect.width
+        newRect.y = rect.y + rect.height - newRect.height
+        newRect.x = rect.x + (rect.width - newRect.width) / 2
       }
     }
 
     if (handle === 'r') {
-      newRect.value.width += delta.x * (center ? 2 : 1)
+      newRect.width += delta.x * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.height = newRect.value.width / rect.width * rect.height
-        newRect.value.y = rect.y + (rect.height - newRect.value.height) / 2
+        newRect.height = newRect.width / rect.width * rect.height
+        newRect.y = rect.y + (rect.height - newRect.height) / 2
       }
     }
 
     if (handle === 'b') {
-      newRect.value.height += delta.y * (center ? 2 : 1)
+      newRect.height += delta.y * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.width = newRect.value.height / rect.height * rect.width
-        newRect.value.x = rect.x + (rect.width - newRect.value.width) / 2
+        newRect.width = newRect.height / rect.height * rect.width
+        newRect.x = rect.x + (rect.width - newRect.width) / 2
       }
     }
 
     if (handle === 'l') {
-      newRect.value.x += delta.x * (center ? 2 : 1)
-      newRect.value.width -= delta.x * (center ? 2 : 1)
+      newRect.x += delta.x * (center ? 2 : 1)
+      newRect.width -= delta.x * (center ? 2 : 1)
       if (preserveAspect) {
-        newRect.value.height = newRect.value.width / rect.width * rect.height
-        newRect.value.x = rect.x + rect.width - newRect.value.width
-        newRect.value.y = rect.y + (rect.height - newRect.value.height) / 2
+        newRect.height = newRect.width / rect.width * rect.height
+        newRect.x = rect.x + rect.width - newRect.width
+        newRect.y = rect.y + (rect.height - newRect.height) / 2
       }
     }
     if (center) {
-      newRect.value.x = rect.x + (rect.width - newRect.value.width) / 2
-      newRect.value.y = rect.y + (rect.height - newRect.value.height) / 2
+      newRect.x = rect.x + (rect.width - newRect.width) / 2
+      newRect.y = rect.y + (rect.height - newRect.height) / 2
     }
 
-    flipX = newRect.value.width < 0
-    flipY = newRect.value.height < 0
+    if (!cropping) {
+      flipX = newRect.width < 0
+      flipY = newRect.height < 0
+    } else {
+      newRect.width = Math.max(0, newRect.width)
+      newRect.height = Math.max(0, newRect.height)
+    }
 
     if (flipX) {
-      newRect.value.x += newRect.value.width
-      newRect.value.width *= -1
+      newRect.x += newRect.width
+      newRect.width *= -1
     }
 
     if (flipY) {
-      newRect.value.y += newRect.value.height
-      newRect.value.height *= -1
+      newRect.y += newRect.height
+      newRect.height *= -1
+    }
+    apply()
+  }
+
+  const apply = () => {
+    if (cropping) {
+      const newCrop = Margin.clone(crop)
+      newCrop.top += newRect.y - rect.y
+      newCrop.right += rect.x + rect.width - newRect.x - newRect.width
+      newCrop.bottom += rect.y + rect.height - newRect.y - newRect.height
+      newCrop.left += newRect.x - rect.x
+
+      newCrop.top = Math.round(Math.max(0, newCrop.top))
+      newCrop.right = Math.round(Math.max(0, newCrop.right))
+      newCrop.bottom = Math.round(Math.max(0, newCrop.bottom))
+      newCrop.left = Math.round(Math.max(0, newCrop.left))
+
+      element.crop = newCrop
+      element.rect = rect
+    } else {
+      element.crop = crop
+
+      newRect.x = Math.round(newRect.x)
+      newRect.y = Math.round(newRect.y)
+      newRect.width = Math.round(newRect.width)
+      newRect.height = Math.round(newRect.height)
+
+      element.rect = newRect
+
+      if (flipX && flipY) {
+        element.transformMatrix = startMatrix.scale(-1, -1)
+      } else if (flipX) {
+        element.transformMatrix = startMatrix.scale(-1, 1)
+      } else if (flipY) {
+        element.transformMatrix = startMatrix.scale(1, -1)
+      }
     }
 
-    element.rect = newRect.value
-    element.flipX = flipX ? !startFlipX : startFlipX
-    element.flipY = flipY ? !startFlipY : startFlipY
+    sendCanvasUpdate(props.canvas.id, props.canvas)
   }
 
   const stop = () => {
     window.removeEventListener('pointermove', resize)
     window.removeEventListener('pointerup', stop)
-    element.rect = newRect.value ?? element.rect
-    newRect.value = undefined
+    apply()
   }
 
   window.addEventListener('pointermove', resize)
@@ -310,14 +336,14 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
 
     &:hover:not(&--selected) {
       .canvas-overlay__element {
-        outline: 2px solid rgb(255, 0, 183, 0.5);
+        outline: 1px solid rgb(255, 0, 183, 0.5);
       }
     }
 
-    &--selected {
+    &--selected:not(&--positionable) {
       z-index: 1;
       .canvas-overlay__element {
-        outline: 1px solid rgb(255, 0, 183, 0.5) !important;
+        outline: 2px solid rgb(255, 0, 183, 0.5) !important;
       }
     }
   }
@@ -330,6 +356,7 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
   &__element {
     pointer-events: none;
     $handle-size: 1rem;
+    touch-action: none;
 
     &__move {
       pointer-events: auto;
@@ -342,7 +369,37 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       position: absolute;
       inset: 0;
       z-index: 1;
-      border: rgb(255, 0, 183) solid 1px;
+      border: rgb(255, 0, 183) solid 2px;
+
+      $crop-color: rgb(16, 159, 113);
+
+      &--crop-t {
+        border-top-color: $crop-color;
+        .canvas-overlay__element__resize-edge--b .canvas-overlay__element__resize-handle {
+          border-color: $crop-color;
+        }
+      }
+
+      &--crop-r {
+        border-right-color: $crop-color;
+        .canvas-overlay__element__resize-edge--r .canvas-overlay__element__resize-handle {
+          border-color: $crop-color;
+        }
+      }
+
+      &--crop-b {
+        border-bottom-color: $crop-color;
+        .canvas-overlay__element__resize-edge--b .canvas-overlay__element__resize-handle {
+          border-color: $crop-color !important;
+        }
+      }
+
+      &--crop-l {
+        border-left-color: $crop-color;
+        .canvas-overlay__element__resize-edge--l .canvas-overlay__element__resize-handle {
+          border-color: $crop-color;
+        }
+      }
     }
 
     &__resize-handle {

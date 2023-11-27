@@ -1,37 +1,28 @@
 <template>
   <VApp>
-    <VNavigationDrawer app>
+    <VNavigationDrawer
+      app
+      permanent
+    >
       <VList>
         <VListItem
-          v-for="canvas in canvasArr"
+          v-for="canvas in (canvases as Canvas[])"
           :key="canvas.id"
-          @click="removeCanvas(canvas as CanvasStatic)"
+          @click="removeCanvas(canvas)"
         >
           <VListItemTitle>{{ canvas.name }}</VListItemTitle>
         </VListItem>
         <VDivider class="my-2" />
-        <VListItem @click="newCanvas">
+        <VListItem @click="addCanvas">
           <VListItemTitle>New Canvas</VListItemTitle>
-        </VListItem>
-        <VListItem @click="createBrowserWindows">
-          <VListItemTitle>Create Views</VListItemTitle>
-        </VListItem>
-        <VListItem @click="createPlayback">
-          <VListItemTitle>Create Playback</VListItemTitle>
-        </VListItem>
-        <VListItem
-          v-for="playback in playbacks"
-          :key="playback.id"
-          @click="startPlayback(playback.id)"
-        >
-          <VListItemTitle>{{ playback.id }}</VListItemTitle>
         </VListItem>
       </VList>
     </VNavigationDrawer>
     <VMain>
       <EditorCanvas
         v-model:selection="selection"
-        :canvas-arr="(canvasArr as CanvasStatic[])"
+        :canvases="(canvases as Canvas[])"
+        :components="components"
       />
     </VMain>
     <VNavigationDrawer location="right">
@@ -44,28 +35,28 @@
           v-for="(selectedPropertiesValue, i) in selectedProperties"
           :key="(i)"
         >
-          <VListItemTitle v-if="selectedPropertiesValue.type !== 'action'">
-            {{ selectedPropertiesValue.name }}
+          <VListItemTitle>
+            {{ selectedPropertiesValue.label }}
           </VListItemTitle>
 
           <VSwitch
-            v-if="selectedPropertiesValue.type === 'boolean'"
+            v-if="selectedPropertiesValue.options.type === 'boolean'"
             v-model="selectedPropertiesValue.value"
           />
           <VTextField
-            v-else-if="selectedPropertiesValue.type === 'string'"
+            v-else-if="selectedPropertiesValue.options.type === 'text'"
             v-model="selectedPropertiesValue.value"
           />
           <VTextField
-            v-else-if="selectedPropertiesValue.type === 'number'"
+            v-else-if="selectedPropertiesValue.options.type === 'number'"
             v-model.number="selectedPropertiesValue.value"
             :type="'number'"
           />
-          <template v-else-if="selectedPropertiesValue.type === 'xy'">
+          <template v-else-if="selectedPropertiesValue.options.type === 'vec2'">
             <VTextField
               v-model.number="selectedPropertiesValue.value.x"
-              label="X"
               :type="'number'"
+              label="X"
             />
             <VTextField
               v-model.number="selectedPropertiesValue.value.y"
@@ -73,7 +64,7 @@
               :type="'number'"
             />
           </template>
-          <template v-else-if="selectedPropertiesValue.type === 'rect'">
+          <template v-else-if="selectedPropertiesValue.options.type === 'rect'">
             <VTextField
               v-model.number="selectedPropertiesValue.value.x"
               label="X"
@@ -95,17 +86,37 @@
               :type="'number'"
             />
           </template>
+          <template v-else-if="selectedPropertiesValue.options.type === 'margin'">
+            <VTextField
+              v-model.number="selectedPropertiesValue.value.top"
+              label="Top"
+              :type="'number'"
+            />
+            <VTextField
+              v-model.number="selectedPropertiesValue.value.right"
+              label="Right"
+              :type="'number'"
+            />
+            <VTextField
+              v-model.number="selectedPropertiesValue.value.bottom"
+              label="Bottom"
+              :type="'number'"
+            />
+            <VTextField
+              v-model.number="selectedPropertiesValue.value.left"
+              label="Left"
+              :type="'number'"
+            />
+          </template>
           <VSelect
-            v-else-if="selectedPropertiesValue.type === 'select'"
+            v-else-if="selectedPropertiesValue.options.type === 'select'"
             v-model="selectedPropertiesValue.value"
-            :items="selectedPropertiesValue.meta.options"
+            :items="selectedPropertiesValue.options.options.map((o) => ({
+              title: o.label,
+              value: o.value
+            }))"
           />
-          <VBtn
-            v-else-if="selectedPropertiesValue.type === 'action'"
-            @click="selectedPropertiesValue.value()"
-          >
-            {{ selectedPropertiesValue.name }}
-          </VBtn>
+          <!-- {{ selectedPropertiesValue.value }} -->
         </VListItem>
       </VList>
     </VNavigationDrawer>
@@ -113,100 +124,123 @@
 </template>
 
 <script setup lang="ts">
-import { watch , reactive , computed , Ref , ref , toRaw } from 'vue'
-import { Canvas, CanvasStatic, ComponentTypes } from './canvas/Canvas'
+import { reactive, ref, computed } from 'vue'
+import { Canvas, CanvasJSON } from './canvas/Canvas'
 import EditorCanvas from './components/EditorCanvas.vue'
 import { BridgeType } from './BridgeType'
-import { ComponentStatic, getById } from './canvas/Component'
-import { Video, VideoStatic } from './canvas/Video'
-import { Playback,PlaybackEntry } from './canvas/Playback'
-import { Rect } from './helpers/Rect'
+import { Component, ComponentJSON } from './canvas/Component'
+import { Property } from './canvas/Property'
+import './canvas/Video'
+import { Slot } from './canvas/Slot'
+import { sendCanvasUpdate } from './main'
 
 declare const bridge: BridgeType
 
-const selection = ref<ComponentStatic[]>([]) as Ref<ComponentStatic[]>
+const selection = ref<Slot[]>([])
+
 const selectedProperties = computed(() => {
-  if (selection.value.length === 0) {
-    return {}
-  } else if (selection.value.length === 1) {
-    const type = ComponentTypes[selection.value[0].type]
-    return type.getProperties(selection.value[0] as any)
+  if (selection.value.length !== 1) return []
+
+  const slot = selection.value[0]
+  const component = components.find((c) => c.id === slot.componentId)
+  const canvas = (canvases as Canvas[]).find((c) => c.children.includes(slot))
+
+  if (!canvas || !component) return []
+
+  return [
+    new Property(
+      { type: 'rect' },
+      'Rect',
+      () => slot.rect,
+      (v) => {
+        slot.rect = v
+        sendCanvasUpdate(canvas.id, canvas)
+      }
+    ),
+    new Property(
+      { type: 'margin' },
+      'Crop',
+      () => slot.crop,
+      (v) => {
+        slot.crop = v
+        sendCanvasUpdate(canvas.id, canvas)
+      }
+    ),
+    ...component.getProperties(() => {
+      sendCanvasUpdate(canvas.id, canvas)
+    })
+  ]
+})
+
+const canvases = reactive<Canvas[]>([])
+const components = reactive<Component[]>([])
+
+bridge.onCanvasUpdate(updateCanvas)
+bridge.getCanvases().then(updateAllCanvases)
+
+bridge.onComponentUpdate(updateComponent)
+bridge.getComponents().then(updateAllComponents)
+
+function updateCanvas (id: string, c: CanvasJSON | null) {
+  if (c === null) {
+    const index = canvases.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      delete canvases[index]
+    }
   } else {
-    return {}
-  }
-})
-
-const canvasArr = reactive<CanvasStatic[]>([])
-watch(canvasArr, () => {
-  // console.log('canvasArr updated', canvasArr)
-  canvasArr.forEach((canvas) => {
-    bridge.setCanvas(toRaw(canvas))
-  })
-})
-
-bridge.onCanvasUpdate(update)
-bridge.getCanvases().then(update)
-
-function update (canvases: CanvasStatic[]) {
-  // Add new canvases
-  for (const newCanvas of canvases) {
-    let canvas = canvasArr.find((canvas) => canvas.id === newCanvas.id)
-    if (!canvas) {
-      canvasArr.push(newCanvas)
+    const canvas = canvases.find((c) => c.id === id)
+    if (canvas) {
+      canvas.fromJSON(c)
+    } else {
+      canvases.push(Canvas.fromJSON(c))
     }
   }
+}
 
-  // Remove canvases that are no longer in the list
-  const canvasIds = canvases.map((canvas) => canvas.id)
-  canvasArr.forEach((canvas) => {
-    if (!canvasIds.includes(canvas.id)) {
-      canvasArr.splice(canvasArr.indexOf(canvas), 1)
+function updateAllCanvases (c: CanvasJSON[]) {
+  c.forEach((canvasJSON) => {
+    const canvas = canvases.find((c) => c.id === canvasJSON.id)
+    if (canvas) {
+      canvas.fromJSON(canvasJSON)
+    } else {
+      canvases.push(Canvas.fromJSON(canvasJSON))
     }
   })
 }
 
-function removeCanvas (canvas: CanvasStatic) {
-  canvasArr.splice(canvasArr.indexOf(canvas), 1)
+function updateComponent (id: string, c: ComponentJSON | null) {
+  if (c === null) {
+    const index = components.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      delete components[index]
+    }
+  } else {
+    const component = components.find((c) => c.id === id)
+    if (component) {
+      component.fromJSON(c)
+    } else {
+      components.push(Component.fromJSON(c))
+    }
+  }
+}
+
+function updateAllComponents (c: ComponentJSON[]) {
+  c.forEach((component) => {
+    const index = components.findIndex((c) => c.id === component.id)
+    if (index !== -1) {
+      components[index].fromJSON(component)
+    } else {
+      components.push(Component.fromJSON(component))
+    }
+  })
+}
+
+function removeCanvas (canvas: Canvas) {
   bridge.removeCanvas(canvas.id)
 }
 
-const playbacks = reactive<Playback[]>([])
-bridge.getPlaybacks().then((pbks) => {
-  console.log('playbacks', playbacks)
-  pbks.forEach((playback) => {
-    playbacks.push(new Playback(playback.id, playback.entries.map(entry => new PlaybackEntry(getById(entry.id, canvasArr) as VideoStatic, entry.time))))
-  })
-})
-
-function newCanvas () {
-  const canvas = new Canvas().getStatic()
-
-  const video = new Video({
-    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    rect: new Rect(0, 0, 1920, 1080)
-  }).getStatic()
-
-  Canvas.appendChild(canvas, video)
-
-  console.log('canvas', canvas)
-  canvasArr.push(canvas)
-}
-
-function createBrowserWindows () {
-  bridge.createBrowserWindows(true)
-}
-
-function createPlayback () {
-  const playback = new Playback()
-  canvasArr.flatMap(x => [x, ...x.children]).filter(x => x.type === 'video')
-  .forEach((video) => {
-    playback.addEntry(new PlaybackEntry(video as VideoStatic, 0))
-  })
-  playbacks.push(playback)
-  bridge.setPlayback(playback.id, playback.getStaticEntries())
-}
-
-function startPlayback (id: string) {
-  bridge.startPlayback(id)
+function addCanvas () {
+  const canvas = new Canvas()
+  bridge.setCanvas(canvas.toJSON())
 }
 </script>

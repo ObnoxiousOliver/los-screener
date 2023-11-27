@@ -17,20 +17,24 @@
     >
       <div class="editor-canvas__wrapper">
         <template
-          v-for="canvas in canvasArr"
+          v-for="canvas in canvases"
           :key="canvas.id"
         >
           <div class="editor-canvas__canvas">
-            <!-- <CanvasRenderer :canvas="canvas" /> -->
-            <div
-              :style="{
-                width: `${canvas.rect.width}px`,
-                height: `${canvas.rect.height}px`
-              }"
+            <CanvasRenderer
+              :canvas="canvas"
+              :components="components"
             />
+            <!-- <div
+              :style="{
+                width: `${canvas.size.x}px`,
+                height: `${canvas.size.y}px`
+              }"
+            /> -->
             <CanvasOverlay
               :canvas="canvas"
-              :selected-elements="(selection as ComponentStatic[])"
+              :components="components"
+              :selection="selection"
               :scale="scale"
               @select="select"
             />
@@ -43,16 +47,18 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { CanvasStatic } from '../canvas/Canvas'
 import { Vec2 } from '../helpers/Vec2'
-// import CanvasRenderer from './CanvasRenderer.vue'
 import CanvasOverlay from './CanvasOverlay.vue'
-import { ComponentStatic } from '../canvas/Component'
 import { useVModel } from '@vueuse/core'
+import { Canvas } from '../canvas/Canvas'
+import { Component } from '../canvas/Component'
+import CanvasRenderer from './CanvasRenderer.vue'
+import { Slot } from '../canvas/Slot'
 
 const props = defineProps<{
-  canvasArr: CanvasStatic[],
-  selection: ComponentStatic[]
+  canvases: Canvas[]
+  components: Component[]
+  selection: Slot[]
 }>()
 const emit = defineEmits(['update:selection'])
 
@@ -63,28 +69,28 @@ const scale = ref(1)
 
 const selection = useVModel(props, 'selection', emit)
 
-function select (element: ComponentStatic | null, action: 'multi' | 'single' | 'remove' = 'single') {
-  if (element === null) {
+function select (slot: Slot | null, action: 'multi' | 'single' | 'remove' = 'single') {
+  if (slot === null) {
     selection.value = []
     return
   }
 
   if (action === 'single') {
-    selection.value = [element]
+    selection.value = [slot]
     return
   }
   if (action === 'remove') {
-    selection.value = selection.value?.filter((el) => el !== element) ?? null
+    selection.value = selection.value?.filter((el) => el !== slot) ?? null
     return
   }
-  selection.value.push(element)
-  console.log(selection.value)
+  selection.value.push(slot)
 }
 
 function scaleFromPointOnScreen (point: Vec2, s: number) {
   if (!root.value) return
   const pointOnCanvas = point
     .sub(new Vec2(root.value.clientWidth / 2, root.value.clientHeight / 2))
+    .sub(new Vec2(root.value.offsetLeft, root.value.offsetTop))
     .sub(translate.value)
     .div(scale.value)
   translate.value = translate.value.sub(pointOnCanvas.mul(s - scale.value))
@@ -93,7 +99,7 @@ function scaleFromPointOnScreen (point: Vec2, s: number) {
 
 function onWheel (e: WheelEvent) {
   if (e.ctrlKey) {
-    const newScale = scale.value * (1 - e.deltaY / 1000)
+    const newScale = scale.value * (1 - e.deltaY / 300)
     scaleFromPointOnScreen(new Vec2(e.clientX, e.clientY), newScale)
   } else {
     const delta = new Vec2(e.deltaX, e.deltaY)

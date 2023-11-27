@@ -8,11 +8,13 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'
 import { Canvas } from '../canvas/Canvas'
+import { Component } from '../canvas/Component'
 
 const root = ref<HTMLElement>()
 
 const props = defineProps<{
   canvas: Canvas
+  components: Component[]
 }>()
 
 const canvasEl = ref<HTMLElement>()
@@ -28,11 +30,11 @@ watchEffect(() => {
 })
 
 watchEffect(() => {
-  props.canvas.onRender((el) => {
-    canvasEl.value = el
-  })
+  if (props.canvas) {
+    const canvas = props.canvas
+    canvasEl.value = canvas.render(props.components)
+  }
 })
-props.canvas.render()
 </script>
 
 <style lang="scss" scoped>

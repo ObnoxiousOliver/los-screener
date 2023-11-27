@@ -1,13 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { CanvasStatic } from '../../canvas/Canvas'
+import { ComponentJSON } from '../../canvas/Component'
 
 contextBridge.exposeInMainWorld('bridge', {
-  setCanvas(canvasStatic: CanvasStatic) {
-    ipcRenderer.send('setCanvasBw', canvasStatic)
-  },
-  onCanvasUpdate(callback: (canvas: any) => void) {
+  onCanvasUpdate(callback: (canvas: ComponentJSON | null) => void) {
     ipcRenderer.on('canvasUpdate', (event, canvas) => {
       callback(canvas)
     })
+  },
+  getCanvas() {
+    return ipcRenderer.invoke('getCanvas')
+  },
+  onComponentUpdate(callback: (id: string, component: ComponentJSON | null) => void): void {
+    ipcRenderer.on('componentUpdate', (event, id, component) => {
+      callback(id, component)
+    })
+  },
+  getComponents() {
+    return ipcRenderer.invoke('getComponents')
   }
 })

@@ -1,8 +1,11 @@
-export class Vec2 {
+import { TransferableObject } from '../canvas/TransferableObject'
+
+export class Vec2 extends TransferableObject {
   x: number
   y: number
 
   constructor(x = 0, y = 0) {
+    super()
     this.x = x
     this.y = y
   }
@@ -47,6 +50,22 @@ export class Vec2 {
 
   angle() {
     return Math.atan2(this.y, this.x)
+  }
+
+  toJSON() {
+    return {
+      x: this.x,
+      y: this.y
+    }
+  }
+
+  fromJSON(json: any) {
+    this.x = json.x
+    this.y = json.y
+  }
+
+  static fromJSON(json: any) {
+    return new Vec2(json.x, json.y)
   }
 
   static fromAngle(angle: number) {

@@ -1,13 +1,12 @@
-import { CanvasStatic } from './canvas/Canvas'
-import { PlaybackEntryStatic } from './canvas/Playback'
+import { CanvasJSON } from './canvas/Canvas'
+import { ComponentJSON } from './canvas/Component'
 
 export interface BridgeType {
-  setCanvas (canvas: CanvasStatic): void
+  setCanvas (canvas: CanvasJSON): void
   removeCanvas (id: string): void
-  onCanvasUpdate (callback: (canvases: CanvasStatic[]) => void): void
-  getCanvases (): Promise<CanvasStatic[]>
-  createBrowserWindows (createBrowserWindows: boolean): void
-  setPlayback (id: string, entries: PlaybackEntryStatic[]): void
-  getPlaybacks (): Promise<{ id: string, entries: PlaybackEntryStatic[] }[]>
-  startPlayback (id: string): void
+  onCanvasUpdate (callback: (id: string, canvas: CanvasJSON | null) => void): void
+  getCanvases (): Promise<CanvasJSON[]>
+  setComponent (component: ComponentJSON): void
+  onComponentUpdate (callback: (id: string, component: ComponentJSON | null) => void): void
+  getComponents (): Promise<ComponentJSON[]>
 }

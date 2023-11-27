@@ -1,12 +1,21 @@
+import { JsonObject, TransferableObject } from '../canvas/TransferableObject'
 import { Vec2 } from './Vec2'
 
-export class Rect {
+export interface RectJSON extends JsonObject {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export class Rect extends TransferableObject {
   x: number
   y: number
   width: number
   height: number
 
   constructor(x?: number, y?: number, width?: number, height?: number) {
+    super()
     this.x = x ?? 0
     this.y = y ?? 0
     this.width = width ?? 0
@@ -28,6 +37,26 @@ export class Rect {
 
   equals(rect: Rect) {
     return this.x === rect.x && this.y === rect.y && this.width === rect.width && this.height === rect.height
+  }
+
+  toJSON() {
+    return {
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height
+    }
+  }
+
+  fromJSON(json: any) {
+    this.x = json.x
+    this.y = json.y
+    this.width = json.width
+    this.height = json.height
+  }
+
+  static fromJSON(json: any) {
+    return new Rect(json?.x, json?.y, json?.width, json?.height)
   }
 
   static clone (rect: Rect) {

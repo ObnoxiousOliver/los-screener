@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { release } from 'node:os'
 import { join } from 'node:path'
-import { CanvasManager } from './CanvasManager'
+import { WindowManager } from './WindowManager'
 
 // The built directory structure
 //
@@ -13,9 +13,6 @@ import { CanvasManager } from './CanvasManager'
 // ├─┬ dist
 // │ └── index.html    > Electron-Renderer
 //
-
-app.commandLine.appendSwitch('high-dpi-support', '1')
-app.commandLine.appendSwitch('force-device-scale-factor', '1')
 
 process.env.DIST_ELECTRON = join(__dirname, '..')
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
@@ -55,7 +52,8 @@ async function createWindow() {
       // Consider using contextBridge.exposeInMainWorld
       // Read more on https://www.electronjs.org/docs/latest/tutorial/context-isolation
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      webSecurity: false
     }
   })
 
@@ -81,7 +79,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(() => {
-  CanvasManager.get()
+  WindowManager.getInstance()
 
   createWindow()
 })

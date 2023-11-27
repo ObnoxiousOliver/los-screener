@@ -1,137 +1,105 @@
-import { Component, ComponentOptions, ComponentStatic, PropertyValue } from './Component'
-import { Rect } from '../helpers/Rect'
+import { Component, ComponentJSON, ComponentMap, ComponentOptions } from './Component'
+import { Property } from './Property'
 
 export type VideoFit = 'contain' | 'cover' | 'fill'
 
 export interface VideoOptions {
   src: string
   objectFit: VideoFit
-  time: number
 }
 
-export interface VideoStatic extends ComponentStatic {
+export const VideoDefaults: VideoOptions = {
+  src: '',
+  objectFit: 'contain'
+}
+
+export interface VideoJSON extends ComponentJSON {
+  type: 'video'
   src: string
-  objectFit: VideoFit,
-  playing: boolean,
-  volume: number,
-  time: number,
-  startTime: number
-  duration: number
+  fit: VideoFit
 }
 
 export class Video extends Component {
-  type: string = 'video'
-  el: HTMLVideoElement
-  src: string = ''
-  objectFit: VideoFit = 'contain'
-  playing: boolean = false
-  time: number = 0
-  startTime: number = 0
-  volume: number = 1
-  duration: number = 0
+  declare type: 'video'
+  src: string
+  fit: VideoFit
 
   constructor (options: Partial<VideoOptions & ComponentOptions> = {}) {
-    super(options)
-    this.el = document.createElement('video')
-    this.src = options.src ?? ''
-    this.el.src = this.src
-    this.el.volume = this.volume
-    this.objectFit = options.objectFit ?? 'contain'
-    this.el.currentTime = options.time ?? 0
-
-    this.el.addEventListener('loadedmetadata', () => {
-      this.duration = this.el.duration
-    })
-    this.el.addEventListener('play', () => {
-      this.playing = true
-    })
-    this.el.addEventListener('pause', () => {
-      this.playing = false
-    })
-    this.el.addEventListener('timeupdate', () => {
-      this.time = this.el.currentTime
-      this.update()
-    })
+    super('video', options)
+    this.src = options.src ?? VideoDefaults.src
+    this.fit = options.objectFit ?? VideoDefaults.objectFit
   }
 
-  getRect(): Rect {
-    return this.rect
+  private element: HTMLVideoElement | null = null
+  public override render (): HTMLVideoElement {
+    if (!document) {
+      throw new Error('No document found')
+    }
+
+    if (!this.element) {
+      this.element = document.createElement('video')
+      this.element.style.position = 'absolute'
+      this.element.style.width = '100%'
+      this.element.style.height = '100%'
+    }
+
+    if (this.element.getAttribute('src') !== this.src) this.element.src = this.src
+    if (this.element.style.objectFit !== this.fit) this.element.style.objectFit = this.fit
+
+    return this.element
   }
 
-  static override getProperties(component: VideoStatic): Record<string, PropertyValue> {
-    return {
-      ...super.getProperties(component),
-      src: new PropertyValue({
-        name: 'Source',
-        value: component.src,
-        type: 'string',
-        set: (src: string) => component.src = src
-      }),
-      objectFit: new PropertyValue({
-        name: 'Object Fit',
-        value: component.objectFit,
-        type: 'select',
-        meta: {
-          options: ['contain', 'cover', 'fill']
-        },
-        set: (objectFit: VideoFit) => {
-          console.log('set object fit', objectFit)
-          component.objectFit = objectFit
+  override getProperties(updateFn?: () => void): Property<any>[] {
+    return [
+      ...super.getProperties(),
+      new Property(
+        { type: 'text' },
+        'Source',
+        () => this.src,
+        (value) => {
+          this.src = value
+          updateFn?.()
         }
-      })
-    }
+      ),
+      new Property(
+        { type: 'select', options: [
+          { label: 'Contain', value: 'contain' },
+          { label: 'Cover', value: 'cover' },
+          { label: 'Fill', value: 'fill' }
+        ] },
+        'Fit',
+        () => this.fit,
+        (value) => {
+          this.fit = value
+          updateFn?.()
+        }
+      )
+    ]
   }
 
-  render(editor: boolean = false): HTMLElement {
-    this.el.style.position = 'absolute'
-    this.el.style.left = this.rect.x + 'px'
-    this.el.style.top = this.rect.y + 'px'
-    this.el.style.width = this.rect.width + 'px'
-    this.el.style.height = this.rect.height + 'px'
-    this.el.style.backgroundColor = '#000'
-    this.el.style.objectFit = this.objectFit
-    this.el.style.transform = `scaleX(${this.flipX ? -1 : 1}) scaleY(${this.flipY ? -1 : 1})`
-    this.el.volume = editor ? 0 : this.volume
-
-    if (this.src !== this.el.getAttribute('src')) {
-      console.log('set src', this.src, this.el.src)
-      this.el.src = this.src
-    }
-
-    return this.el
-  }
-
-  override getStatic(): VideoStatic {
+  public toJSON(): ComponentJSON {
     return {
-      ...super.getStatic(),
+      ...super.toJSON(),
       src: this.src,
-      objectFit: this.objectFit,
-      playing: this.playing,
-      volume: this.volume,
-      time: this.time,
-      startTime: this.startTime,
-      duration: this.duration
+      fit: this.fit
     }
   }
 
-  override fromStatic(staticComponent: Partial<VideoStatic>): void {
-    super.fromStatic(staticComponent)
-    console.log('fromStatic', staticComponent.src !== this.src)
-    staticComponent.src !== undefined && staticComponent.src !== this.src && (this.src = staticComponent.src)
-    staticComponent.objectFit !== undefined && staticComponent.objectFit !== this.objectFit && (this.objectFit = staticComponent.objectFit)
-    staticComponent.playing !== undefined && staticComponent.playing !== this.playing && (this.playing = staticComponent.playing)
+  fromJSON (json: VideoJSON) {
+    super.fromJSON(json)
+    console.log(this.src, json.src)
+    if (this.src !== json.src) this.src = json.src
+    if (this.fit !== json.fit) this.fit = json.fit
+  }
 
-    staticComponent.startTime !== undefined && staticComponent.startTime !== this.startTime && (this.startTime = staticComponent.startTime)
-    if (staticComponent.time !== undefined) {
-      this.time = staticComponent.time
-
-      if (!staticComponent.playing || Math.abs(Date.now() * 0.001 - this.el.currentTime - this.startTime) > 50) {
-        this.el.currentTime = this.startTime ? Date.now() * 0.001 - this.startTime : this.time
-      }
-    }
-
-    if (staticComponent.playing === this.el.paused) {
-      staticComponent.playing ? this.el.play() : this.el.pause()
-    }
+  static fromJSON (json: VideoJSON) {
+    return new Video({
+      id: json.id,
+      name: json.name,
+      src: json.src,
+      objectFit: json.fit
+    })
   }
 }
+
+ComponentMap['video'] = Video.fromJSON

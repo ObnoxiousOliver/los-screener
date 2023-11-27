@@ -1,136 +1,132 @@
-import { Component, ComponentOptions, ComponentStatic, PropertyValue, Resizeable, getById, getByIdRaw, hasChildren } from './Component'
+import { id } from '../helpers/Id'
 import { Vec2 } from '../helpers/Vec2'
-import { Rect } from '../helpers/Rect'
-import { Video } from './Video'
+import { Component } from './Component'
+import { Slot, SlotJSON } from './Slot'
+import { JsonObject, TransferableObject } from './TransferableObject'
 
 export interface CanvasOptions {
-  resolution: Vec2
+  id: string
+  name: string
+  size: Vec2
+  children: Slot[]
 }
 
-export interface CanvasStatic extends ComponentStatic {
-  children: ComponentStatic[]
+export interface CanvasJSON extends JsonObject {
+  id: string
+  name: string
+  size: JsonObject
+  children: SlotJSON[]
 }
 
-export class Canvas extends Component implements hasChildren {
-  type: string = 'canvas'
-  children: Component[] = []
-  override resizeable: Resizeable = false
-  override movable: boolean = false
+export class Canvas extends TransferableObject {
+  id: string
+  name: string
+  size: Vec2
+  children: Slot[]
 
-  el: HTMLDivElement = document.createElement('div')
-
-  constructor (options: Partial<ComponentOptions> = {}) {
-    super({
-      name: 'Canvas',
-      rect: new Rect(0, 0, 1920, 1080),
-      ...options
-    })
+  constructor (options?: Partial<CanvasOptions>) {
+    super()
+    this.id = options?.id ?? id()
+    this.name = options?.name ?? 'Canvas'
+    this.size = options?.size ?? new Vec2(1280, 720)
+    this.children = options?.children ?? []
   }
 
-  appendChild(child: Component): void {
-    child.onUpdated(this.update.bind(this))
-    console.log('append', child)
+  setChildren (children: Slot[]): void {
+    this.children = children
+  }
+
+  addChild (child: Slot): void {
     this.children.push(child)
-    this.render()
   }
 
-  removeChild(child: Component): void {
+  removeChild (child: Slot): void {
     const index = this.children.indexOf(child)
-    if (index !== -1) {
+    if (index > -1) {
       this.children.splice(index, 1)
     }
-    child.offUpdated(this.update.bind(this))
-    this.render()
   }
 
-  getById (id: string): Component | undefined {
-    return getByIdRaw(id, this.children)
-  }
+  private canvasElement: HTMLElement | null = null
+  render (components: Component[]): HTMLElement {
+    if (!document) throw new Error('Document not found')
 
-  static appendChild(canvas: CanvasStatic, child: ComponentStatic): CanvasStatic {
-    canvas.children.push(child)
-    return canvas
-  }
-
-  static removeChild(canvas: CanvasStatic, child: ComponentStatic): CanvasStatic {
-    const index = canvas.children.indexOf(child)
-    if (index !== -1) {
-      canvas.children.splice(index, 1)
+    if (!this.canvasElement) {
+      this.canvasElement = document.createElement('div')
+      this.canvasElement.classList.add('canvas')
+      this.canvasElement.dataset.id = this.id
+      this.canvasElement.style.position = 'relative'
+      this.canvasElement.style.overflow = 'hidden'
     }
-    return canvas
-  }
+    this.canvasElement.style.width = `${this.size.x}px`
+    this.canvasElement.style.height = `${this.size.y}px`
 
-  static getById(canvas: CanvasStatic, id: string): ComponentStatic | undefined {
-    return getById(id, canvas.children)
-  }
-
-  static override getProperties(component: CanvasStatic): Record<string, PropertyValue> {
-    const props = super.getProperties(component)
-    delete props.visible
-    delete props.opacity
-    return props
-  }
-
-  renderListeners: ((el: HTMLElement) => void)[] = []
-  onRender (cb: (el: HTMLElement) => void) {
-    this.renderListeners.push(cb)
-  }
-
-  render (editor: boolean = false): HTMLDivElement {
-    this.el.style.width = this.rect.width + 'px'
-    this.el.style.height = this.rect.height + 'px'
-    this.el.style.backgroundColor = '#000'
-    this.el.style.overflow = 'hidden'
-    this.el.style.position = 'relative'
+    const slotElements: HTMLDivElement[] = Array.from(this.canvasElement.querySelectorAll('div.slot'))
+    for (const slotElement of slotElements) {
+      const slot = this.children.find(c => c.id === slotElement.dataset.id)
+      if (!slot) {
+        this.canvasElement.removeChild(slotElement)
+      }
+    }
 
     for (const child of this.children) {
-      this.el.appendChild(child.render(editor))
+      const component = components.find(c => c.id === child.componentId)
+
+      if (component) {
+        let slotElement: HTMLDivElement | null = slotElements.find(s => s.dataset.id === child.id) ?? null
+        if (!slotElement) {
+          slotElement = document.createElement('div')
+          slotElement.dataset.id = child.id
+          slotElement.classList.add('slot')
+
+          slotElement.style.position = 'absolute'
+          slotElement.style.overflow = 'hidden'
+          this.canvasElement.appendChild(slotElement)
+        }
+
+        slotElement.style.width = `${child.rect.width}px`
+        slotElement.style.height = `${child.rect.height}px`
+        slotElement.style.left = `${child.rect.x}px`
+        slotElement.style.top = `${child.rect.y}px`
+
+        slotElement.style.clipPath = `inset(${child.crop.top}px ${child.crop.right}px ${child.crop.bottom}px ${child.crop.left}px)`
+
+        slotElement.style.transform = child.transformMatrix.toString()
+        slotElement.replaceChildren(component.render())
+      }
     }
 
-    for (const cb of this.renderListeners) {
-      cb(this.el)
-    }
-
-    return this.el
+    return this.canvasElement
   }
 
-  override getStatic (): CanvasStatic {
+  toJSON (): CanvasJSON {
     return {
-      ...super.getStatic(),
-      children: this.children.map(child => child.getStatic())
+      id: this.id,
+      name: this.name,
+      size: this.size.toJSON(),
+      children: this.children.map(c => c.toJSON())
     }
   }
 
-  override fromStatic (staticComponent: Partial<CanvasStatic>) {
-    super.fromStatic(staticComponent)
-    if (staticComponent.children !== undefined) {
-      staticComponent.children.forEach(child => {
-        const existingChild = this.getById(child.id)
-        if (existingChild) {
-          existingChild.fromStatic(child)
-        } else {
-          const newChild = ComponentTypes[child.type] !== undefined && new ComponentTypes[child.type]()
-
-          if (!newChild) {
-            throw new Error(`Component type ${child.type} not found`)
-          }
-
-          newChild.fromStatic(child)
-          this.appendChild(newChild)
-        }
-      })
-
-      // Remove children that are not in the static component
-      this.children.forEach(child => {
-        if (!staticComponent.children?.find(c => c.id === child.id)) {
-          this.removeChild(child)
-        }
-      })
+  fromJSON (json: CanvasJSON): void {
+    if (this.id !== json.id) this.id = json.id
+    if (this.name !== json.name) this.name = json.name
+    if (!this.size.equals(Vec2.fromJSON(json.size))) this.size = Vec2.fromJSON(json.size)
+    if (this.children.length !== json.children.length) {
+      this.children = json.children.map(c => Slot.fromJSON(c))
+    } else {
+      for (let i = 0; i < this.children.length; i++) {
+        this.children[i].fromJSON(json.children[i])
+      }
     }
   }
-}
 
-export const ComponentTypes: Record<string, typeof Canvas | typeof Video> = {
-  canvas: Canvas,
-  video: Video
+  static fromJSON (json: CanvasJSON): Canvas {
+    return new Canvas({
+      id: json.id,
+      name: json.name,
+      size: Vec2.fromJSON(json.size),
+      children: json.children.map(c => Slot.fromJSON(c))
+    })
+  }
 }

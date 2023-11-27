@@ -1,114 +1,64 @@
-import { Video, VideoStatic } from './Video'
+import { id } from '../helpers/Id'
+import { JsonObject } from './TransferableObject'
 
-export class PlaybackEntry {
-  component: Video | VideoStatic
-
-  // time in seconds
+export interface PlaybackEntry extends JsonObject {
+  componentId: string
+  action: string
   time: number
-
-  constructor (component: Video | VideoStatic, time: number) {
-    this.component = component
-    this.time = time
-  }
-
-  getStatic (): PlaybackEntryStatic {
-    return {
-      id: this.component.id,
-      time: this.time
-    }
-  }
 }
 
-export interface PlaybackEntryStatic {
+export interface PlaybackOptions {
   id: string
-  time: number
+  entries: PlaybackEntry[]
+}
+
+export interface PlaybackJSON extends JsonObject {
+  id: string
+  entries: PlaybackEntry[]
 }
 
 export class Playback {
-  readonly id: string
-  private entries: PlaybackEntry[] = []
-  private _playing: boolean = false
-  private _time: number = 0
-  private _startTime: number = 0
-
-  get playing (): boolean {
-    return this._playing
+  private _id: string
+  public get id (): string {
+    return this._id
+  }
+  private set id (value: string) {
+    this._id = value
   }
 
-  get entriesCount (): number {
-    return this.entries.length
+  private _entries: PlaybackEntry[]
+  public get entries (): PlaybackEntry[] {
+    return this._entries
+  }
+  private set entries (value: PlaybackEntry[]) {
+    this._entries = value
   }
 
-  get totalTime (): number {
-    return Math.max(...this.entries.map(e => e.time + e.component.duration))
+  constructor (options?: Partial<PlaybackOptions>) {
+    this._id = options?.id ?? id()
+    this._entries = options?.entries ?? []
   }
 
-  constructor (id?: string, entries: PlaybackEntry[] = []) {
-    this.id = id ?? Math.random().toString(36).substr(2, 9)
-    this.entries = entries
+  public add (componentId: string, action: string, time: number): void {
+    this.entries.push({ componentId, action, time })
   }
 
-  private timeouts: NodeJS.Timeout[] = []
-  play (update: () => void) {
-    if (this.playing) return
-
-    this._playing = true
-    this._startTime = Date.now() * .001 - this._time
-
-    let done = 0
-    for (const entry of this.entries) {
-      entry.component.startTime = this._startTime + entry.time
-
-      const timeout = setTimeout(() => {
-        entry.component.playing = true
-        entry.component.startTime = this._startTime + entry.time
-        entry.component.time = entry.component.startTime - Date.now() * .001
-        upd()
-        this.timeouts = this.timeouts.filter(t => t !== timeout)
-
-        const timeout2 = setTimeout(() => {
-          entry.component.playing = false
-          done++
-          if (done === this.entries.length) {
-            this._playing = false
-          }
-          upd()
-          this.timeouts = this.timeouts.filter(t => t !== timeout2)
-        }, Math.max(0, (entry.component.duration - entry.component.time) * 1000))
-        this.timeouts.push(timeout2)
-      }, Math.max(0, (entry.time - this._time) * 1000))
-      this.timeouts.push(timeout)
-    }
-
-    const upd = () => {
-      this._time = Date.now() * .001 - this._startTime
-      update()
+  public toJSON (): PlaybackJSON {
+    return {
+      id: this.id,
+      entries: this.entries
     }
   }
 
-  pause () {
-    if (!this.playing) return
-
-    this._playing = false
-    this.timeouts.forEach(t => clearTimeout(t))
-    this.timeouts = []
-
-    this._time = Date.now() * .001 - this._startTime
+  public fromJSON (json: PlaybackJSON): void {
+    this.id = json.id
+    this.entries = json.entries
   }
 
-  setEntries (entries: PlaybackEntry[]) {
-    this.entries = entries
-  }
-
-  addEntry (entry: PlaybackEntry) {
-    this.entries.push(entry)
-  }
-
-  clearEntries () {
-    this.entries = []
-  }
-
-  getStaticEntries (): PlaybackEntryStatic[] {
-    return this.entries.map(e => e.getStatic())
+  static fromJSON (json: PlaybackJSON): Playback {
+    return new Playback({
+      id: json.id,
+      entries: json.entries
+    })
   }
 }
