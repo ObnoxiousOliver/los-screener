@@ -1,19 +1,5 @@
 <template>
   <VApp>
-    <VAppBar
-      app
-      clipped-left
-      border="b"
-      elevation="0"
-    >
-      <VToolbarTitle>Editor</VToolbarTitle>
-      <VSpacer />
-      <VBtn
-        icon="mdi-plus"
-        @click="showWindows"
-      />
-    </VAppBar>
-
     <VNavigationDrawer
       permanent
     >
@@ -273,7 +259,7 @@ function addCanvas () {
 
 function showWindows () {
   bridge.showWindows()
-  const window = new Window(new Rect(0, 0, 1920, 1080), canvases[0].id)
+  const window = new Window(new Rect(-1920, 182, 1920, 1080), canvases[0].id)
   bridge.setWindow(window.toJSON())
 }
 </script>
