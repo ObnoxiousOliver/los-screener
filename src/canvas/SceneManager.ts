@@ -3,14 +3,11 @@ import { Canvas, CanvasJSON } from './Canvas'
 import { Component, ComponentFactory, ComponentJSON } from './Component'
 import { Playback } from './Playback'
 import { Scene, SceneJSON } from './Scene'
+import { SlotJSON } from './Slot'
 import { WindowManager } from './WindowManager'
-import { Slot, SlotJSON } from './Slot'
 import { DefaultPlugin } from './default/defaultPlugin'
-import { Rect } from '../helpers/Rect'
-import { Text } from './default/Text'
 import { access, readFile } from 'fs/promises'
 import { getType as getMimeType } from 'mime'
-import { Video } from './default/Video'
 
 export class SceneManager {
   private scenes: Scene[] = []
@@ -76,17 +73,17 @@ export class SceneManager {
     ComponentFactory.registerPlugin(DefaultPlugin)
 
     const defaultCanvas = new Canvas()
-    this.components.push(new Video({
-      name: 'Image',
-      src: 'E:\\LoS 2023\\Untitled.mp4'
-    }))
-    defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[0].id))
+    // this.components.push(new Video({
+    //   name: 'Image',
+    //   src: 'E:\\LoS 2023\\Untitled.mp4'
+    // }))
+    // defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[0].id))
 
-    this.components.push(new Text({
-      name: 'Text',
-      content: 'Hello World!'
-    }))
-    defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[1].id))
+    // this.components.push(new Text({
+    //   name: 'Text',
+    //   content: 'Hello World!'
+    // }))
+    // defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[1].id))
 
     this.canvases.push(defaultCanvas)
   }

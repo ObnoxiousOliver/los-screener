@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron'
 import { release } from 'node:os'
 import { join } from 'node:path'
 import { WindowManager } from '../../canvas/WindowManager'
@@ -56,6 +56,8 @@ async function createWindow() {
     }
   })
 
+  // mainWin.setMenuBarVisibility(false)
+
   if (process.env.VITE_DEV_SERVER_URL) { // electron-vite-vue#298
     mainWin.loadURL(url)
     // Open devTool if the app is not packaged
@@ -79,6 +81,112 @@ async function createWindow() {
 
 app.whenReady().then(() => {
   WindowManager.getInstance()
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: 'File',
+      submenu: [
+        { label: 'Open', accelerator: 'CmdOrCtrl+O', click: () => { console.log('Open') } },
+        { label: 'Open Recent', submenu: [{ label: 'File 1' }, { label: 'File 2' }] },
+        { type: 'separator' },
+        { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => { console.log('Save') } },
+        { label: 'Save As', accelerator: 'CmdOrCtrl+Shift+S', click: () => { console.log('Save As') } },
+        { type: 'separator' },
+        { label: 'Exit', accelerator: 'CmdOrCtrl+Q', role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: 'Redo', accelerator: 'CmdOrCtrl+Shift+Z', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+        { label: 'Paste Duplicate', accelerator: 'CmdOrCtrl+Alt+V', click: () => { console.log('Paste Duplicate') } },
+        { label: 'Delete', accelerator: 'Delete', role: 'delete' },
+        { type: 'separator' },
+        {
+          label: 'Transform',
+          submenu: [
+            { label: 'Copy Transform', click: () => { console.log('Copy Transform') } },
+            { label: 'Paste Transform', click: () => { console.log('Paste Transform') } },
+            { label: 'Reset Transform', accelerator: 'CmdOrCtrl+Shift+R', click: () => { console.log('Reset Transform') } },
+            { type: 'separator' },
+            { label: 'Rotate Left', accelerator: 'CmdOrCtrl+Shift+Left', click: () => { console.log('Rotate Left') } },
+            { label: 'Rotate Right', accelerator: 'CmdOrCtrl+Shift+Right', click: () => { console.log('Rotate Right') } },
+            { type: 'separator'},
+            { label: 'Flip Horizontal', accelerator: 'CmdOrCtrl+Shift+H', click: () => { console.log('Flip Horizontal') } },
+            { label: 'Flip Vertical', accelerator: 'CmdOrCtrl+Shift+V', click: () => { console.log('Flip Vertical') } },
+            { type: 'separator'},
+            { label: 'Fill Canvas', accelerator: 'CmdOrCtrl+Shift+F', click: () => { console.log('Fill Canvas') } },
+            { label: 'Center', accelerator: 'CmdOrCtrl+Shift+C', click: () => { console.log('Center') } },
+            { label: 'Center Horizontal', click: () => { console.log('Center Horizontal') } },
+            { label: 'Center Vertical', click: () => { console.log('Center Vertical') } }
+          ]
+        },
+        {
+          label: 'Arrange',
+          submenu: [
+            { label: 'Bring Forward', accelerator: 'CmdOrCtrl+]', click: () => { console.log('Bring Forward') } },
+            { label: 'Bring to Front', accelerator: 'CmdOrCtrl+Shift+]', click: () => { console.log('Bring to Front') } },
+            { label: 'Send Backward', accelerator: 'CmdOrCtrl+[', click: () => { console.log('Send Backward') } },
+            { label: 'Send to Back', accelerator: 'CmdOrCtrl+Shift+[', click: () => { console.log('Send to Back') } }
+          ]
+        },
+        { type: 'separator' },
+        { label: 'Select All', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
+        { label: 'Deselect', accelerator: 'CmdOrCtrl+Shift+A', click: () => { console.log('Deselect') } },
+        { type: 'separator' },
+        { label: 'Preferences', accelerator: 'CmdOrCtrl+,', click: () => { console.log('Preferences') } }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Toggle Full Screen', accelerator: 'F11', role: 'togglefullscreen' },
+        { type: 'separator' },
+        { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => { console.log('Zoom In') } },
+        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => { console.log('Zoom Out') } },
+        { label: 'Reset Zoom', accelerator: 'CmdOrCtrl+0', click: () => { console.log('Reset Zoom') } },
+        { type: 'separator' },
+        { label: 'Reload', accelerator: 'CmdOrCtrl+R', role: 'reload' },
+        { label: 'Force Reload', accelerator: '', role: 'forceReload' },
+        { type: 'separator' },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: 'CmdOrCtrl+Shift+I',
+          role: 'toggleDevTools'
+        }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { label: 'Zoom In', accelerator: 'CmdOrCtrl+Shift+=', role: 'zoomIn' },
+        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+Shift+-', role: 'zoomOut' },
+        { label: 'Reset Zoom', accelerator: '', role: 'resetZoom' }
+      ]
+    },
+    {
+      label: 'Canvas Viewers',
+      submenu: [
+        { label: 'Toggle Visibility', click: () => { console.log('Toggle Visibility') } },
+        { label: 'Always On Top', click: () => { console.log('Set All Always On Top') } },
+        { label: 'Lock All Positions', click: () => { console.log('Lock All Positions') } },
+        { type: 'separator' },
+        { label: 'Refresh All', click: () => { console.log('Refresh All') } }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Check for Updates', click: () => { console.log('Check for Updates') } },
+        { label: 'About', click: () => { console.log('About') } }
+      ]
+    }
+  ]))
 
   createWindow()
 })

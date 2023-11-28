@@ -1,5 +1,19 @@
 <template>
   <VApp>
+    <VAppBar
+      app
+      clipped-left
+      border="b"
+      elevation="0"
+    >
+      <VToolbarTitle>Editor</VToolbarTitle>
+      <VSpacer />
+      <VBtn
+        icon="mdi-plus"
+        @click="showWindows"
+      />
+    </VAppBar>
+
     <VNavigationDrawer
       permanent
     >
@@ -263,3 +277,9 @@ function showWindows () {
   bridge.setWindow(window.toJSON())
 }
 </script>
+
+<style lang="scss">
+body {
+  overflow: hidden;
+}
+</style>

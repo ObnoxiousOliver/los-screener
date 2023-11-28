@@ -5,6 +5,7 @@ import './main.scss'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
+import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import { CanvasJSON } from './canvas/Canvas'
 import { BridgeType } from './BridgeType'
 import { SlotJSON } from './canvas/Slot'
@@ -17,6 +18,13 @@ const vuetify = createVuetify({
   directives,
   theme: {
     defaultTheme: 'dark'
+  },
+  icons: {
+    defaultSet: 'mdi',
+    aliases,
+    sets: {
+      mdi
+    }
   }
 })
 
