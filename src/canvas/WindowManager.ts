@@ -5,9 +5,11 @@ import { SceneManager } from './SceneManager'
 import { ComponentJSON } from './Component'
 import { mainWin } from '../electron/main'
 import { Window, WindowJSON } from './Window'
+import { SceneJSON } from './Scene'
 
 export class WindowManager {
   private windows: Window[] = []
+  // Canvas ID -> BrowserWindow
   private browserWindows: Record<string, BrowserWindow> = {}
 
   private constructor () {
@@ -132,6 +134,49 @@ export class WindowManager {
 
       console.log(`Requesting media ${id} from ${src}`)
       return await SceneManager.getInstance().requestMedia(id, src)
+    })
+
+    ipcMain.on('setScene', (_, scene: any) => {
+      if (typeof scene !== 'object') {
+        console.error('Error while setting scene: scene is not an object')
+        return
+      }
+
+      SceneManager.getInstance().updateSceneWithJSON(scene)
+    })
+
+    ipcMain.on('createScene', (_, canvasIds: any) => {
+
+      SceneManager.getInstance().createScene(canvasIds)
+    })
+
+    ipcMain.on('removeScene', (_, id: any) => {
+      if (typeof id !== 'string') {
+        console.error('Error while removing scene: id is not a string')
+        return
+      }
+
+      SceneManager.getInstance().removeScene(id)
+    })
+
+    ipcMain.handle('getScenes', () => {
+      return SceneManager.getInstance().getScenes().map(scene => {
+        const json: SceneJSON & {
+          sceneSetup?: any
+        } = scene.toJSON()
+        delete json.sceneSetup
+        return json
+      })
+    })
+
+    ipcMain.handle('getActiveScenes', () => {
+      return Object.fromEntries(Object.entries(SceneManager.getInstance().getActiveScenes()).map(([id, scene]) => [id, scene.id]))
+    })
+
+    ipcMain.on('setActiveScenes', (_, canvasToSceneId: Record<string, string>) => {
+      for (const [canvasId, sceneId] of Object.entries(canvasToSceneId)) {
+        SceneManager.getInstance().setActiveSceneForCanvas(canvasId, sceneId)
+      }
     })
   }
 
@@ -346,6 +391,23 @@ export class WindowManager {
       win.webContents.send('componentUpdate', id, component)
     }
     mainWin?.webContents.send('componentUpdate', id, component)
+  }
+
+  updateScene (id: string, scene: SceneJSON | null) {
+    console.log(`Updating scene ${id}`)
+
+    const json: SceneJSON & {
+      sceneSetup?: any
+    } | null = scene
+    json && delete json.sceneSetup
+
+    mainWin?.webContents.send('sceneUpdate', id, json)
+  }
+
+  updateActiveScenes () {
+    console.log('Updating active scenes')
+
+    mainWin?.webContents.send('activeScenesChanged', Object.fromEntries(Object.entries(SceneManager.getInstance().getActiveScenes()).map(([id, scene]) => [id, scene.id])))
   }
 
   setWindow (window: WindowJSON) {

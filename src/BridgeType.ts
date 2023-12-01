@@ -1,5 +1,6 @@
 import { CanvasJSON } from './canvas/Canvas'
 import { ComponentJSON } from './canvas/Component'
+import { SceneJSON } from './canvas/Scene'
 import { SlotJSON } from './canvas/Slot'
 import { Window, WindowJSON } from './canvas/Window'
 
@@ -24,4 +25,12 @@ export interface BridgeType {
   hideWindows (): void
 
   requestMedia (id: string, src: string): Promise<string | null>
+
+  setScene (scene: SceneJSON): void
+  createScene (canvasIds?: string[]): void
+  removeScene (id: string): void
+  onSceneUpdated (callback: (id: string, scene: SceneJSON | null) => void): void
+  getScenes (): Promise<SceneJSON[]>
+  setActiveScenes (canvasToSceneId: Record<string, string>): void
+  onActiveScenesChanged (callback: (canvasToSceneId: Record<string, string>) => void): void
 }

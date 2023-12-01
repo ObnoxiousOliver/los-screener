@@ -13,6 +13,7 @@ import { WindowManager } from '../../canvas/WindowManager'
 // ├─┬ dist
 // │ └── index.html    > Electron-Renderer
 //
+app.commandLine.appendSwitch('disable-pinch')
 
 process.env.DIST_ELECTRON = join(__dirname, '..')
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
@@ -68,6 +69,8 @@ async function createWindow() {
 
   // Test actively push message to the Electron-Renderer
   mainWin.webContents.on('did-finish-load', () => {
+    mainWin?.webContents.setZoomFactor(1)
+    mainWin?.webContents.setVisualZoomLevelLimits(1, 1)
     mainWin?.webContents.send('main-process-message', new Date().toLocaleString())
   })
 
@@ -162,15 +165,7 @@ app.whenReady().then(() => {
       ]
     },
     {
-      label: 'Window',
-      submenu: [
-        { label: 'Zoom In', accelerator: 'CmdOrCtrl+Shift+=', role: 'zoomIn' },
-        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+Shift+-', role: 'zoomOut' },
-        { label: 'Reset Zoom', accelerator: '', role: 'resetZoom' }
-      ]
-    },
-    {
-      label: 'Canvas Viewers',
+      label: 'Windows',
       submenu: [
         { label: 'Toggle Visibility', click: () => { console.log('Toggle Visibility') } },
         { label: 'Always On Top', click: () => { console.log('Set All Always On Top') } },

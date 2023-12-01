@@ -7,6 +7,7 @@
       v-model.number="modelValue.x"
       :label="labelX ?? 'X'"
       :type="'number'"
+      variant="outlined"
       @update:model-value="(v: string) => {
         emit('update:modelValue', {
           x: parseFloat(v) || 0,
@@ -20,6 +21,7 @@
       v-model.number="modelValue.y"
       :label="labelY ?? 'Y'"
       :type="'number'"
+      variant="outlined"
       @update:model-value="(v: string) => {
         emit('update:modelValue', {
           x: modelValue.x,
@@ -38,6 +40,7 @@
       v-model.number="modelValue.z"
       :label="labelZ ?? 'Z'"
       :type="'number'"
+      variant="outlined"
       @update:model-value="(v: string) => {
         emit('update:modelValue', {
           x: modelValue.x,
@@ -51,6 +54,7 @@
       v-model.number="modelValue.w"
       :label="labelW ?? 'W'"
       :type="'number'"
+      variant="outlined"
       @update:model-value="(v: string) => {
         emit('update:modelValue', {
           x: modelValue.x,

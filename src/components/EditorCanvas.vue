@@ -18,62 +18,92 @@
     <div
       class="editor-canvas__grid"
       :style="{
-        transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`
+        transform: `translate(${translate.x}px, ${translate.y}px)`
       }"
     >
-      <div class="editor-canvas__wrapper">
-        <template
-          v-for="canvas in canvases"
-          :key="canvas.id"
+      <template
+        v-for="(canvas, i) in canvases"
+        :key="canvas.id"
+      >
+        <div
+          class="editor-canvas__canvas"
+          :style="{
+            position: 'absolute',
+            left: `${canvases.slice(0, i).reduce((acc, cur) => acc + (cur.size.x + 20) * scale, 0)}px`,
+            width: `${canvas.size.x * scale}px`,
+            height: `${canvas.size.y * scale}px`,
+          }"
         >
-          <div class="editor-canvas__canvas">
-            <CanvasRenderer
-              :canvas="canvas"
-              :components="components"
-            />
-            <!-- <div
-              :style="{
-                width: `${canvas.size.x}px`,
-                height: `${canvas.size.y}px`
+          <CanvasRenderer
+            :canvas="canvas"
+            :editor="editor"
+            :style="{
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left'
+            }"
+          />
+          <CanvasOverlay
+            :canvas="canvas"
+            :editor="editor"
+            :scale="scale"
+            @select="select"
+          />
+          <div
+            class="editor-canvas__canvas__name"
+            :data-canvas-name="canvas.name.length === 0 ? '.' : canvas.name"
+          >
+            <input
+              :value="canvas.name"
+              type="text"
+              @input="(e) => {
+                const v = (e.target as HTMLInputElement).value
+                canvas.name = v
+                sendCanvasUpdate(canvas.id, canvas.toJSON())
               }"
-            /> -->
-            <CanvasOverlay
-              :canvas="canvas"
-              :components="components"
-              :selection="selection"
-              :scale="scale"
-              @select="select"
-            />
+            >
           </div>
-        </template>
-      </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref , computed } from 'vue'
+import { ref, computed } from 'vue'
 import { Vec2 } from '../helpers/Vec2'
 import CanvasOverlay from './CanvasOverlay.vue'
-import { useVModel } from '@vueuse/core'
-import { Canvas } from '../canvas/Canvas'
-import { Component } from '../canvas/Component'
 import CanvasRenderer from './CanvasRenderer.vue'
 import { Slot } from '../canvas/Slot'
+import { sendCanvasUpdate } from '../main'
+import { Editor } from '../editor/Editor'
 
 const props = defineProps<{
-  canvases: Canvas[]
-  components: Component[]
-  selection: Slot[]
+  editor: Editor
 }>()
-const emit = defineEmits(['update:selection'])
 
+const canvases = computed(() => props.editor.canvases)
 const root = ref<HTMLElement>()
 
-const translate = ref(new Vec2())
-const scale = ref(1)
+const _translate = ref(new Vec2())
+const translate = computed({
+  get: () => _translate.value,
+  set: (v) => {
+    const padding = 100
+    const xView = root.value!.clientWidth
+    const yView = root.value!.clientHeight
+    const xCanvas = canvases.value.reduce((acc, cur) => acc + cur.size.x * scale.value, 0) + (canvases.value.length - 1) * 20 * scale.value
+    const yCanvas = canvases.value.reduce((acc, cur) => Math.max(acc, cur.size.y), 0) * scale.value
+    const maxX = xCanvas + xView / 2 - padding
+    const maxY = yCanvas + yView / 2 - padding
 
-const selection = useVModel(props, 'selection', emit)
+    _translate.value = new Vec2(
+      Math.min(xView / 2 - padding, Math.max(-maxX, v.x)),
+      Math.min(yView / 2 - padding, Math.max(-maxY, v.y))
+    )
+  }
+})
+
+const scale = ref(1)
 
 const gridSize = computed(() => {
   if (scale.value < 0.0625) return 800
@@ -85,19 +115,19 @@ const gridSize = computed(() => {
 
 function select (slot: Slot | null, action: 'multi' | 'single' | 'remove' = 'single') {
   if (slot === null) {
-    selection.value = []
+    props.editor.deselectAll()
     return
   }
 
   if (action === 'single') {
-    selection.value = [slot]
+    props.editor.selectElement(slot.id)
     return
   }
   if (action === 'remove') {
-    selection.value = selection.value?.filter((el) => el !== slot) ?? null
+    props.editor.deselectElement(slot.id)
     return
   }
-  selection.value.push(slot)
+  props.editor.selectElement(slot.id, true)
 }
 
 function scaleFromPointOnScreen (point: Vec2, s: number) {
@@ -110,11 +140,17 @@ function scaleFromPointOnScreen (point: Vec2, s: number) {
     .sub(new Vec2(root.value.offsetLeft, root.value.offsetTop))
     .sub(translate.value)
     .div(scale.value)
-  translate.value = translate.value.sub(pointOnCanvas.mul(s - scale.value))
+
+  const oldScale = scale.value
   scale.value = s
+
+  translate.value = translate.value.sub(pointOnCanvas.mul(s - oldScale))
 }
 
 function onWheel (e: WheelEvent) {
+  if (!root.value) return
+  if (grabbing.value) return
+
   if (e.ctrlKey) {
     const newScale = scale.value * (1 - e.deltaY / 300)
     scaleFromPointOnScreen(new Vec2(e.clientX, e.clientY), newScale)
@@ -124,9 +160,11 @@ function onWheel (e: WheelEvent) {
   }
 }
 
+const grabbing = ref(false)
 function onPointerdown (e: PointerEvent) {
   if (e.button !== 1) return
 
+  grabbing.value = true
   const start = new Vec2(e.clientX, e.clientY)
   const startTranslate = translate.value
 
@@ -138,6 +176,8 @@ function onPointerdown (e: PointerEvent) {
   function onPointerup () {
     window.removeEventListener('pointermove', onPointermove)
     window.removeEventListener('pointerup', onPointerup)
+
+    grabbing.value = false
   }
 
   window.addEventListener('pointermove', onPointermove)
@@ -146,7 +186,7 @@ function onPointerdown (e: PointerEvent) {
 </script>
 
 <style lang="scss" scoped>
-@use '../settings.scss' as s;
+@use '../style/variables' as v;
 
 .editor-canvas {
   position: relative;
@@ -167,34 +207,67 @@ function onPointerdown (e: PointerEvent) {
 
     background:
       radial-gradient(
-        s.$button-background 0%,
-        s.$button-background 8%,
+        #1a1a1a 0%,
+        #1a1a1a 8%,
         transparent 8%,
         transparent 100%
       ),
       #111;
+
     background-size:
       calc(var(--grid-size) * var(--grid-scale))
       calc(var(--grid-size) * var(--grid-scale));
+
     background-position:
       calc(50% + var(--grid-offset-x) + var(--grid-size) / 2 * var(--grid-scale))
       calc(50% + var(--grid-offset-y) + var(--grid-size) / 2 * var(--grid-scale));
   }
 
-  &__wrapper {
-    transform: translate(-50%, -50%);
-    width: fit-content;
-    height: fit-content;
-    display: flex;
-    flex-direction: row;
-    align-items: start;
-    justify-content: left;
-    gap: 3rem;
-  }
+  // &__wrapper {
+  //   transform: translate(-50%, -50%);
+  //   width: fit-content;
+  //   height: fit-content;
+  //   display: flex;
+  //   flex-direction: row;
+  //   align-items: start;
+  //   justify-content: left;
+  //   gap: 3rem;
+  // }
 
   &__canvas {
     position: relative;
-    background-color: #000;
+    outline: 1px solid v.$card-border-color;
+
+    &__name {
+      position: absolute;
+      top: -1.6rem;
+      left: 0;
+      min-width: 2rem;
+      height: fit-content;
+      padding: .2rem 1rem .2rem .2rem;
+      line-height: 1rem;
+      font-size: .8rem;
+
+      &::before {
+        opacity: 0;
+        white-space: pre;
+        content: attr(data-canvas-name);
+      }
+
+      input {
+        padding: .2rem 1rem .2rem .2rem;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        color: map-get(v.$grey, 'darken-1');
+
+        &:focus {
+          outline: 1px solid v.$primary;
+          color: black;
+          background: white;
+        }
+      }
+    }
   }
 }
 </style>

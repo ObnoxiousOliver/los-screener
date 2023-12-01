@@ -40,12 +40,12 @@ export class Scene extends TransferableObject {
     }
   }
 
-  fromJSON (json: SceneJSON): void {
-    if (this.id !== json.id) this.id = json.id
-    if (this.name !== json.name) this.name = json.name
-    if (JSON.stringify(this.sceneSetup) !== JSON.stringify(json.sceneSetup)) {
+  fromJSON (json: Partial<SceneJSON>): void {
+    if (json.id && this.id !== json.id) this.id = json.id
+    if (json.name && this.name !== json.name) this.name = json.name
+    if (json.sceneSetup !== undefined && JSON.stringify(this.sceneSetup) !== JSON.stringify(json.sceneSetup)) {
       this.sceneSetup = Object.keys(json.sceneSetup).map(key => ({
-        [key]: json.sceneSetup[key].map(slot => Slot.fromJSON(slot))
+        [key]: json.sceneSetup![key].map(slot => Slot.fromJSON(slot))
       })).reduce((acc, val) => ({ ...acc, ...val }), {})
     }
   }
@@ -55,6 +55,16 @@ export class Scene extends TransferableObject {
       sceneSetup: canvases.map(canvas => ({
         [canvas.id]: canvas.children
       })).reduce((acc, val) => ({ ...acc, ...val }), {})
+    })
+  }
+
+  static fromJSON (json: SceneJSON): Scene {
+    return new Scene({
+      id: json.id,
+      name: json.name,
+      sceneSetup: json.sceneSetup ? Object.keys(json.sceneSetup).map(key => ({
+        [key]: json.sceneSetup[key].map(slot => Slot.fromJSON(slot))
+      })).reduce((acc, val) => ({ ...acc, ...val }), {}) : undefined
     })
   }
 }

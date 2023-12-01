@@ -1,69 +1,90 @@
 <template>
   <VApp>
     <VNavigationDrawer
+      location="bottom"
+      permanent
+      :width="300"
+    >
+      <VLayout full-height>
+        <VNavigationDrawer
+          location="left"
+          permanent
+        >
+          <VContainer>
+            Scenes
+          </VContainer>
+          <VList>
+            <VListItem
+              v-for="scene in editor.scenes"
+              :key="scene.id"
+              :title="scene.name"
+              @click="editor.setActiveSceneToAllCanvases(scene.id)"
+            />
+            <VListItem
+              title="Create new scene"
+              @click="editor.createScene()"
+            />
+          </VList>
+        </VNavigationDrawer>
+      </VLayout>
+    </VNavigationDrawer>
+    <VNavigationDrawer
+      location="left"
       permanent
     >
-      <VList>
-        <VListItem
-          v-for="canvas in (canvases as Canvas[])"
-          :key="canvas.id"
-          @click="removeCanvas(canvas)"
-        >
-          <VListItemTitle>{{ canvas.name }}</VListItemTitle>
-        </VListItem>
-        <VDivider class="my-2" />
-        <VListItem @click="addCanvas">
-          <VListItemTitle>New Canvas</VListItemTitle>
-        </VListItem>
-        <VListItem @click="showWindows">
-          <VListItemTitle>Windows</VListItemTitle>
-        </VListItem>
-      </VList>
+      <VContainer>
+        Components
+      </VContainer>
+      <VDivider />
+      <ComponentList :editor="editor" />
     </VNavigationDrawer>
     <VMain>
       <EditorCanvas
-        v-model:selection="selection"
-        :canvases="(canvases as Canvas[])"
-        :components="components"
+        :editor="editor"
       />
     </VMain>
     <VNavigationDrawer
       location="right"
       permanent
     >
-      <VList>
-        <VListItem>
-          <VListItemTitle>Right Drawer</VListItemTitle>
-        </VListItem>
-
-        <VListItem
+      <VContainer>
+        Properties
+      </VContainer>
+      <VContainer>
+        <template
           v-for="(selectedPropertiesValue, i) in selectedProperties"
           :key="(i)"
         >
-          <VListItemTitle>
-            {{ selectedPropertiesValue.label }}
-          </VListItemTitle>
-
           <VSwitch
             v-if="selectedPropertiesValue.options.type === 'boolean'"
             v-model="selectedPropertiesValue.value"
+            :color="'primary'"
+            :label="selectedPropertiesValue.label"
           />
           <TextInput
             v-else-if="selectedPropertiesValue.options.type === 'text'"
             v-model="selectedPropertiesValue.value"
             :update-on-blur="selectedPropertiesValue.options.updateOnBlur"
+            variant="outlined"
+            :label="selectedPropertiesValue.label"
           />
           <VTextarea
             v-else-if="selectedPropertiesValue.options.type === 'textbox'"
             v-model="selectedPropertiesValue.value"
+            :label="selectedPropertiesValue.label"
+            variant="outlined"
           />
           <VTextField
             v-else-if="selectedPropertiesValue.options.type === 'number'"
             v-model.number="selectedPropertiesValue.value"
             :type="'number'"
+            :label="selectedPropertiesValue.label"
+            variant="outlined"
           />
           <Vec2Input
             v-else-if="selectedPropertiesValue.options.type === 'vec2'"
+            :label-x="selectedPropertiesValue.options.labels?.[0]"
+            :label-y="selectedPropertiesValue.options.labels?.[1]"
             :model-value="(selectedPropertiesValue.value as Vec2)"
             @update:model-value="(v) => {
               selectedPropertiesValue.value = v as Vec2
@@ -113,22 +134,22 @@
               title: o.label,
               value: o.value
             }))"
+            :label="selectedPropertiesValue.label"
+            variant="outlined"
           />
-          <!-- {{ selectedPropertiesValue.value }} -->
-        </VListItem>
-      </VList>
+        </template>
+      </VContainer>
     </VNavigationDrawer>
   </VApp>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed , Ref } from 'vue'
-import { Canvas, CanvasJSON } from './canvas/Canvas'
+import { ref, computed , Ref } from 'vue'
+import { Canvas } from './canvas/Canvas'
 import EditorCanvas from './components/EditorCanvas.vue'
 import Vec2Input from './components/Vec2Input.vue'
 import Vec4Input from './components/Vec4Input.vue'
-import { BridgeType } from './BridgeType'
-import { Component, ComponentFactory, ComponentJSON } from './canvas/Component'
+import { ComponentFactory } from './canvas/Component'
 import { Property } from './canvas/Property'
 import { Slot } from './canvas/Slot'
 import { sendCanvasUpdate, sendComponentUpdate } from './main'
@@ -137,19 +158,42 @@ import { Margin } from './helpers/Margin'
 import { Vec2 } from './helpers/Vec2'
 import { DefaultPlugin } from './canvas/default/defaultPlugin'
 import { VTextarea } from 'vuetify/lib/components/index.mjs'
-import { Window } from './canvas/Window'
 import TextInput from './components/TextInput.vue'
-
-declare const bridge: BridgeType
-
-const selection = ref<Slot[]>([]) as Ref<Slot[]>
+import { Editor } from './editor/Editor'
+import ComponentList from './components/ComponentList.vue'
 
 const selectedProperties = computed(() => {
-  if (selection.value.length !== 1) return []
+  if (editor.value.selectedElements.length !== 1) return []
 
-  const slot = selection.value[0] as Slot
-  const component = components.find((c) => c.id === slot.componentId)
-  const canvas = (canvases as Canvas[]).find((c) => c.children.includes(slot))
+  const slotOrCanvas = editor.value.getSelected()[0]
+  if (!slotOrCanvas) return []
+
+  if (editor.value.canvases.includes(slotOrCanvas as Canvas)) {
+    const canvas = slotOrCanvas as Canvas
+    return [
+      new Property(
+        { type: 'text' },
+        'Name',
+        () => canvas.name,
+        (v) => {
+          canvas.name = v
+          sendCanvasUpdate(canvas.id, canvas.toJSON())
+        }
+      ),
+      new Property(
+        { type: 'vec2', labels: ['Width', 'Height'] },
+        'Size',
+        () => Vec2.clone(canvas.size),
+        (v) => {
+          canvas.size = Vec2.clone(v)
+          sendCanvasUpdate(canvas.id, canvas.toJSON())
+        }
+      )
+    ]
+  }
+  const slot = slotOrCanvas as Slot
+  const component = editor.value.getComponent(slot.componentId)
+  const canvas = (editor.value.canvases as Canvas[]).find((c) => c.children.includes((slot)))
 
   if (!canvas || !component) return []
 
@@ -184,88 +228,16 @@ const selectedProperties = computed(() => {
 })
 
 ComponentFactory.registerPlugin(DefaultPlugin)
-const canvases = reactive<Canvas[]>([])
-const components = reactive<Component[]>([])
-
-bridge.onCanvasUpdated(updateCanvas)
-bridge.getCanvases().then(updateAllCanvases)
-
-bridge.onComponentUpdated(updateComponent)
-bridge.getComponents().then(updateAllComponents)
-
-function updateCanvas (id: string, c: CanvasJSON | null) {
-  if (c === null) {
-    const index = canvases.findIndex((c) => c.id === id)
-    if (index !== -1) {
-      canvases.splice(index, 1)
-    }
-  } else {
-    const canvas = canvases.find((c) => c.id === id)
-    if (canvas) {
-      canvas.fromJSON(c)
-    } else {
-      canvases.push(Canvas.fromJSON(c))
-    }
-  }
-}
-
-function updateAllCanvases (c: CanvasJSON[]) {
-  console.log(c)
-  c.forEach((canvasJSON) => {
-    const canvas = canvases.find((c) => c.id === canvasJSON.id)
-    if (canvas) {
-      canvas.fromJSON(canvasJSON)
-    } else {
-      canvases.push(Canvas.fromJSON(canvasJSON))
-    }
-  })
-}
-
-function updateComponent (id: string, c: ComponentJSON | null) {
-  if (c === null) {
-    const index = components.findIndex((c) => c.id === id)
-    if (index !== -1) {
-      delete components[index]
-    }
-  } else {
-    const component = components.find((c) => c.id === id)
-    if (component) {
-      component.fromJSON(c)
-    } else {
-      components.push(Component.fromJSON(c))
-    }
-  }
-}
-
-function updateAllComponents (c: ComponentJSON[]) {
-  c.forEach((component) => {
-    const index = components.findIndex((c) => c.id === component.id)
-    if (index !== -1) {
-      components[index].fromJSON(component)
-    } else {
-      components.push(Component.fromJSON(component))
-    }
-  })
-}
-
-function removeCanvas (canvas: Canvas) {
-  bridge.removeCanvas(canvas.id)
-}
-
-function addCanvas () {
-  const canvas = new Canvas()
-  bridge.setCanvas(canvas.toJSON())
-}
-
-function showWindows () {
-  bridge.showWindows()
-  const window = new Window(new Rect(-1920, 182, 1920, 1080), canvases[0].id)
-  bridge.setWindow(window.toJSON())
-}
+const editor = ref(new Editor(true)) as Ref<Editor>
 </script>
 
 <style lang="scss">
-body {
+html, body, #app {
   overflow: hidden;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 }
 </style>

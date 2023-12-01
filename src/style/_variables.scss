@@ -1,0 +1,5 @@
+@forward 'settings.scss';
+@use 'settings.scss' as s;
+
+$primary: map-get(s.$deep-purple, 'base');
+$secondary: map-get(s.$teal, 'accent-3');

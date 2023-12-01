@@ -3,6 +3,7 @@
     v-model.number="modelValue.x"
     :type="'number'"
     :label="labelX ?? 'X'"
+    variant="outlined"
     @update:model-value="(v: string) => {
       emit('update:modelValue', new Vec2(parseFloat(v), modelValue.y))
     }"
@@ -11,6 +12,7 @@
     v-model.number="modelValue.y"
     :type="'number'"
     :label="labelY ?? 'Y'"
+    variant="outlined"
     @update:model-value="(v: string) => {
       emit('update:modelValue', new Vec2(modelValue.x, parseFloat(v)))
     }"

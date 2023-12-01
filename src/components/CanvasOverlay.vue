@@ -7,15 +7,13 @@
       v-for="(slot, i) in slots"
       :key="i"
       :class="['canvas-overlay__element-wrapper', {
-        'canvas-overlay__element-wrapper--selected': selection.includes(slot),
-        'canvas-overlay__element-wrapper--positionable': selection.length === 1 && (selectedComponents[slot.componentId] as Component)?.positionable
+        'canvas-overlay__element-wrapper--selected': editor.isSelected(slot.id),
+        'canvas-overlay__element-wrapper--positionable': editor.selectedElements.length === 1 && (selectedComponents[slot.componentId] as Component)?.positionable
       }]"
       :style="{
-        transform: `scale(${1 / scale})`,
-        transformOrigin: 'top left',
         position: 'absolute',
-        top: -elementPadding / scale + ((displayRect ?? slot.rect).y + (displayCrop ?? slot.crop).top) + 'px',
-        left: -elementPadding / scale + ((displayRect ?? slot.rect).x + (displayCrop ?? slot.crop).left) + 'px',
+        top: -elementPadding + ((displayRect ?? slot.rect).y + (displayCrop ?? slot.crop).top) * scale + 'px',
+        left: -elementPadding + ((displayRect ?? slot.rect).x + (displayCrop ?? slot.crop).left) * scale + 'px',
         width: elementPadding * 2 + ((displayRect ?? slot.rect).width - (displayCrop ?? slot.crop).right - (displayCrop ?? slot.crop).left) * scale + 'px',
         height: elementPadding * 2 + ((displayRect ?? slot.rect).height - (displayCrop ?? slot.crop).bottom - (displayCrop ?? slot.crop).top) * scale + 'px'
       }"
@@ -34,7 +32,7 @@
           height: ((displayRect ?? slot.rect).height - (displayCrop ?? slot.crop).bottom - (displayCrop ?? slot.crop).top) * scale + 'px'
         }"
       >
-        <template v-if="selection.length === 1 && selection.includes(slot) && (selectedComponents[slot.componentId] as Component)?.positionable">
+        <template v-if="editor.selectedElements.length === 1 && editor.isSelected(slot.id) && (selectedComponents[slot.componentId] as Component)?.positionable">
           <div
             class="canvas-overlay__element__move"
             @pointerdown="(e) => onPointerdown(e, 'move')"
@@ -96,7 +94,6 @@
 
 <script setup lang="ts">
 import { computed , ref , Ref } from 'vue'
-import { Canvas } from '../canvas/Canvas'
 import { Rect } from '../helpers/Rect'
 import { Vec2 } from '../helpers/Vec2'
 import { Component } from '../canvas/Component'
@@ -104,11 +101,12 @@ import { Slot, SlotJSON } from '../canvas/Slot'
 import { TransformMatrix } from '../helpers/TransformMatrix'
 import { Margin } from '../helpers/Margin'
 import { sendSlotUpdate } from '../main'
+import { Editor } from '../editor/Editor'
+import { Canvas } from '../canvas/Canvas'
 
 const props = defineProps<{
-  canvas: Canvas,
-  components: Component[],
-  selection: Slot[],
+  canvas: Canvas
+  editor: Editor
   scale: number
 }>()
 const emit = defineEmits(['select'])
@@ -117,13 +115,16 @@ const elementPadding = 10
 const slots = computed(() => [
   new Slot(
     new Rect(0, 0, props.canvas.size.x, props.canvas.size.y),
-    props.canvas.id
+    props.canvas.id,
+    {
+      id: props.canvas.id
+    }
   ),
   ...props.canvas.children
 ])
 
 function select (slot: Slot, e: MouseEvent) {
-  if (!props.selection.includes(slot)) {
+  if (!props.editor.selectedElements.includes(slot.id)) {
     if (e.shiftKey) {
       emit('select', slot, 'multi')
     } else {
@@ -134,12 +135,18 @@ function select (slot: Slot, e: MouseEvent) {
   }
 }
 
-const selectedComponents = computed(() => Object.fromEntries(props.selection.map(slot => [
-  slot.componentId,
-  slot.componentId === props.canvas.id
-    ? props.canvas
-    : props.components.find(c => c.id === slot.componentId) ?? null
-  ])))
+const selectedComponents = computed(() => {
+  const selected = props.editor.getSelected()
+  return Object.fromEntries(props.editor.selectedElements.map((slotId) => {
+    const isCanvas = slotId === props.canvas.id
+    const slot = isCanvas ? null : selected.find(slot => slot.id === slotId) as Slot
+
+    return [
+      isCanvas ? props.canvas.id : slot?.componentId,
+      isCanvas ? props.canvas : props.editor.components.find(c => c.id === slot?.componentId) ?? null
+    ]
+  }))
+})
 
 const displayRect = ref<Rect | null>(null) as Ref<Rect | null>
 const displayCrop = ref<Margin | null>(null) as Ref<Margin | null>
@@ -150,7 +157,7 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
   e.preventDefault()
   e.stopPropagation()
 
-  const element = props.selection[0]
+  const element = props.editor.getSelected()[0] as Slot
   if (!element) {
     console.warn('No element selected')
     return
@@ -341,6 +348,8 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
 </script>
 
 <style lang="scss" scoped>
+@use '../style/variables' as v;
+
 .canvas-overlay {
   width: fit-content;
   height: fit-content;
@@ -351,7 +360,7 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
 
     &:hover:not(&--selected) {
       .canvas-overlay__element {
-        outline: 1px solid rgb(255, 0, 183, 0.5);
+        outline: 1px solid rgb(v.$primary, 0.5);
       }
     }
 
@@ -360,7 +369,7 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
 
       &:not(.canvas-overlay__element-wrapper--positionable) {
         .canvas-overlay__element {
-          outline: 2px solid rgb(255, 0, 183, 0.5) !important;
+          outline: 2px solid rgb(v.$primary, 0.5) !important;
         }
       }
     }
@@ -392,10 +401,10 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
         content: '';
         position: absolute;
         inset: -1px;
-        border: rgb(255, 0, 183) solid 2px;
+        border: v.$primary solid 2px;
       }
 
-      $crop-color: rgb(16, 159, 113);
+      $crop-color: v.$secondary;
 
       &--crop-t {
         &::before {
@@ -439,7 +448,7 @@ function onPointerdown (e: PointerEvent, handle: 'tl' | 'tr' | 'br' | 'bl' | 't'
       position: absolute;
       width: $handle-size;
       height: $handle-size;
-      border: rgb(255, 0, 183) solid 1px;
+      border: v.$primary solid 1px;
       background: white;
       border-radius: $handle-size * 0.5;
       z-index: 1;

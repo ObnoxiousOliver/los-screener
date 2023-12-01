@@ -167,6 +167,40 @@ const bridge: BridgeType = {
   // Media Management
   requestMedia(id, src) {
     return ipcRenderer.invoke('requestMedia', id, src)
+  },
+
+  // Scene Management
+  setScene(scene) {
+    ipcRenderer.send('setScene', scene)
+  },
+
+  createScene(canvasIds) {
+    ipcRenderer.send('createScene', canvasIds)
+  },
+
+  removeScene(id) {
+    ipcRenderer.send('removeScene', id)
+  },
+
+  onSceneUpdated(callback) {
+    ipcRenderer.on('sceneUpdate', (event, id, scene) => {
+      callback(id, scene)
+    })
+  },
+
+  getScenes() {
+    return ipcRenderer.invoke('getScenes')
+  },
+
+  setActiveScenes(canvasToSceneId) {
+    ipcRenderer.send('setActiveScenes', canvasToSceneId)
+  },
+
+  onActiveScenesChanged(callback) {
+    ipcRenderer.on('activeScenesChanged', (event, canvasToSceneId) => {
+      callback(canvasToSceneId)
+    })
+    ipcRenderer.invoke('getActiveScenes').then(callback)
   }
 }
 

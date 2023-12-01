@@ -1,10 +1,13 @@
 // import { deepProxy, unwrap } from '../helpers/DeepProxy'
+import { Rect } from '../helpers/Rect'
 import { Canvas, CanvasJSON } from './Canvas'
 import { Component, ComponentFactory, ComponentJSON } from './Component'
 import { Playback } from './Playback'
 import { Scene, SceneJSON } from './Scene'
-import { SlotJSON } from './Slot'
+import { Slot, SlotJSON } from './Slot'
 import { WindowManager } from './WindowManager'
+import { Text } from './default/Text'
+import { Video } from './default/Video'
 import { DefaultPlugin } from './default/defaultPlugin'
 import { access, readFile } from 'fs/promises'
 import { getType as getMimeType } from 'mime'
@@ -14,6 +17,7 @@ export class SceneManager {
   private canvases: Canvas[] = []
   private components: Component[] = []
   private playbacks: Playback[] = []
+  // Canvas ID -> Scene
   private activeScenes: Record<string, Scene> = {}
 
   private constructor () {
@@ -73,23 +77,25 @@ export class SceneManager {
     ComponentFactory.registerPlugin(DefaultPlugin)
 
     const defaultCanvas = new Canvas()
-    // this.components.push(new Video({
-    //   name: 'Image',
-    //   src: 'E:\\LoS 2023\\Untitled.mp4'
-    // }))
-    // defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[0].id))
+    this.components.push(new Video({
+      name: 'Image',
+      src: 'https://upload.wikimedia.org/wikipedia/commons/7/79/Big_Buck_Bunny_small.ogv'
+    }))
+    defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[0].id))
 
-    // this.components.push(new Text({
-    //   name: 'Text',
-    //   content: 'Hello World!'
-    // }))
-    // defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[1].id))
+    this.components.push(new Text({
+      name: 'Text',
+      content: 'Hello World!'
+    }))
+    defaultCanvas.addChild(new Slot(new Rect(0, 0, 200, 300), this.components[1].id))
 
     this.canvases.push(defaultCanvas)
+    this.canvases.push(new Canvas())
+    this.checkActiveScenes()
   }
 
   private canvasUpdated (id: string, canvas: Canvas | null): void {
-    this.checkActiveScene()
+    this.checkActiveScenes()
 
     if (canvas) {
       if (!this.activeScenes[canvas.id]) {
@@ -103,12 +109,15 @@ export class SceneManager {
     WindowManager.getInstance().updateCanvas(id, canvas?.toJSON() ?? null)
   }
 
-  private activeSceneUpdated (): void {
-    this.checkActiveScene()
+  private activeScenesUpdated (): void {
+    this.checkActiveScenes()
 
     for (const canvas of this.canvases) {
       canvas.children = this.activeScenes[canvas.id].sceneSetup[canvas.id]
+      WindowManager.getInstance().updateCanvas(canvas.id, canvas.toJSON())
     }
+
+    WindowManager.getInstance().updateActiveScenes()
   }
 
   private componentUpdated (id: string, component: Component | null): void {
@@ -134,10 +143,28 @@ export class SceneManager {
       this.activeScenes[canvas.id] = scene
     }
 
-    this.activeSceneUpdated()
+    this.activeScenesUpdated()
   }
 
-  private checkActiveScene (): void {
+  public setActiveSceneForCanvas (canvasId: string, sceneId: string): void {
+    console.log(`Setting scene ${sceneId} for canvas ${canvasId}.`)
+    const scene = this.scenes.find(s => s.id === sceneId)
+    if (!scene) {
+      console.warn(`Scene with id ${sceneId} not found in SceneManager.`)
+      return
+    }
+
+    const canvas = this.canvases.find(c => c.id === canvasId)
+    if (!canvas) {
+      console.warn(`Canvas with id ${canvasId} not found in SceneManager.`)
+      return
+    }
+
+    this.activeScenes[canvas.id] = scene
+    this.activeScenesUpdated()
+  }
+
+  private checkActiveScenes (): void {
     // check if all canvases have an active scene
     const canvasesWithoutActiveScene = this.canvases.filter(c => !Object.keys(this.activeScenes).includes(c.id))
     if (canvasesWithoutActiveScene.length > 0) {
@@ -167,14 +194,22 @@ export class SceneManager {
     return this.scenes
   }
 
-  public addScene (scene: Scene): void {
-    this.scenes.push(scene)
+  public createScene (canvasIds?: string[]): void {
+    const scene = new Scene()
+    scene.sceneSetup = Object.fromEntries((canvasIds ?? this.canvases.map(c => c.id)).map(id => [id, []]))
 
+    this.scenes.push(scene)
     this.setActiveScene(scene.id)
+    this.sceneUpdated(scene.id, scene)
   }
 
   public removeScene (id: string): void {
     this.scenes = this.scenes.filter(s => s.id !== id)
+    this.sceneUpdated(id, null)
+  }
+
+  public sceneUpdated (id: string, scene: Scene | null): void {
+    WindowManager.getInstance().updateScene(id, scene?.toJSON() ?? null)
   }
 
   // Canvases
@@ -359,8 +394,9 @@ export class SceneManager {
 
     scene.fromJSON(json)
     if (Object.keys(this.activeScenes).includes(scene.id)) {
-      this.activeSceneUpdated()
+      this.activeScenesUpdated()
     }
+    this.sceneUpdated(json.id, scene)
   }
 
   public updateSlotWithJSON (canvasId: string, json: SlotJSON): void {
