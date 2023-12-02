@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron'
 import { release } from 'node:os'
 import { join } from 'node:path'
-import { WindowManager } from '../../canvas/WindowManager'
+import { WindowManager } from '../../screener/WindowManager'
 
 // The built directory structure
 //
@@ -53,7 +53,8 @@ async function createWindow() {
       // Consider using contextBridge.exposeInMainWorld
       // Read more on https://www.electronjs.org/docs/latest/tutorial/context-isolation
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      webSecurity: false
     }
   })
 

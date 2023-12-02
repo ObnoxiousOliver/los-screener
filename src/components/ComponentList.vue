@@ -7,7 +7,6 @@
         :active="element.selected"
         :class="{
           'component-list__item': true,
-          'component-list__item--slot': element.slot,
           'component-list__item--selected': element.selected
         }"
         :title="element.name"
@@ -20,8 +19,8 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { Editor } from '../editor/Editor'
-import { Slot } from '../canvas/Slot'
-import { Canvas } from '../canvas/Canvas'
+import { Slot } from '../screener/Slot'
+import { Canvas } from '../screener/Canvas'
 
 const props = defineProps<{
   editor: Editor
@@ -37,24 +36,12 @@ interface Element {
 const elements = computed(() => {
   const elements: Element[] = []
 
-  for (const canvas of props.editor.canvases) {
-    elements.push({
-      id: canvas.id,
-      name: canvas.name,
-      selected: props.editor.isSelected(canvas.id),
-      canvas
-    })
-
-    for (const slot of canvas.children) {
-      const componentName = props.editor.getComponent(slot.componentId)?.name
-      elements.push({
-        id: slot.id,
-        name: componentName ?? 'Slot without component',
-        selected: props.editor.isSelected(slot.id),
-        slot: slot
-      })
-    }
-  }
+  elements.push(...props.editor.activeScene?.slots.map((slot) => ({
+    id: slot.id,
+    name: props.editor.getComponent(slot.componentId)?.name ?? 'Slot without component',
+    selected: props.editor.isSelected(slot.id),
+    slot
+  })) ?? [])
 
   return elements
 })
@@ -88,11 +75,5 @@ function select (e: MouseEvent | KeyboardEvent, element: Element) {
 .component-list {
   overflow-y: auto;
   overflow-x: hidden;
-
-  & &__item {
-    &--slot {
-      padding-left: 2rem !important;
-    }
-  }
 }
 </style>

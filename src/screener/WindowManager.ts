@@ -1,52 +1,50 @@
 import { BrowserWindow, Menu, MenuItem, ipcMain } from 'electron'
 import { join } from 'path'
-import { Canvas, CanvasJSON } from './Canvas'
 import { SceneManager } from './SceneManager'
 import { ComponentJSON } from './Component'
 import { mainWin } from '../electron/main'
 import { Window, WindowJSON } from './Window'
 import { SceneJSON } from './Scene'
+import { Slice, SliceJSON } from './Slice'
+import { SlotJSON } from './Slot'
 
 export class WindowManager {
   private windows: Window[] = []
-  // Canvas ID -> BrowserWindow
+  // Slice ID -> BrowserWindow
   private browserWindows: Record<string, BrowserWindow> = {}
 
   private constructor () {
-    ipcMain.on('setCanvas', (_, canvas: any) => {
-      if (typeof canvas !== 'object') {
-        console.error('Error while setting canvas: canvas is not an object')
+    ipcMain.on('setSlice', (_, slice: any) => {
+      if (typeof slice !== 'object') {
+        console.error('Error while setting slice: slice is not an object')
         return
       }
 
-      SceneManager.getInstance().updateCanvasWithJSON(canvas)
+      SceneManager.getInstance().updateSliceWithJSON(slice)
     })
-    ipcMain.on('removeCanvas', (_, id: any) => {
+
+    ipcMain.on('removeSlice', (_, id: any) => {
       if (typeof id !== 'string') {
-        console.error('Error while removing canvas: id is not a string')
+        console.error('Error while removing slice: id is not a string')
         return
       }
 
-      SceneManager.getInstance().removeCanvas(id)
+      SceneManager.getInstance().removeSlice(id)
     })
-    ipcMain.handle('getCanvases', () => {
-      const canvases = SceneManager.getInstance().getCanvases()
-      return canvases.map(canvas => canvas.toJSON())
+
+    ipcMain.handle('getSlices', () => {
+      return SceneManager.getInstance().getSlices().map(slice => slice.toJSON())
     })
-    ipcMain.handle('getCanvas', (event) => {
+    ipcMain.handle('getSlice', (event) => {
       for (const [id, bwin] of Object.entries(this.browserWindows)) {
         if (bwin.webContents === event.sender) {
           const window = this.windows.find(w => w.id === id)
+          const slice = SceneManager.getInstance().getSlice(window?.sliceId ?? '')
 
-          if (window) {
-            if (window.canvasId) {
-              const canvas = SceneManager.getInstance().getCanvas(window.canvasId)
-              return canvas?.toJSON() ?? null
-            } else {
-              return null
-            }
+          if (slice) {
+            return slice.toJSON()
           } else {
-            console.error(`Window ${id} not found`)
+            console.error(`Slice ${id} not found`)
             return null
           }
         }
@@ -61,22 +59,54 @@ export class WindowManager {
 
       SceneManager.getInstance().updateComponentWithJSON(component)
     })
+    ipcMain.on('removeComponent', (_, id: any) => {
+      if (typeof id !== 'string') {
+        console.error('Error while removing component: id is not a string')
+        return
+      }
+
+      SceneManager.getInstance().removeComponent(id)
+    })
     ipcMain.handle('getComponents', () => {
       const components = SceneManager.getInstance().getComponents()
       return components.map(component => component.toJSON())
     })
+    ipcMain.handle('invokeComponentAction', (_, id: any, action: any, args: any[]) => {
+      if (typeof id !== 'string') {
+        console.error('Error while invoking component action: id is not a string')
+        return
+      }
 
-    ipcMain.on('setSlot', (_, canvasId: any, slot: any) => {
-      if (typeof canvasId !== 'string') {
+      if (typeof action !== 'string') {
+        console.error('Error while invoking component action: action is not a string')
+        return
+      }
+
+      return this.invokeComponentAction(id, action, args ?? [])
+    })
+
+    ipcMain.on('setSlot', (_, sceneId: any, slotId: string, slot: Partial<SlotJSON> | null) => {
+      if (typeof sceneId !== 'string') {
         console.error('Error while setting slot: canvasId is not a string')
         return
       }
-      if (typeof slot !== 'object') {
+
+      if (typeof slotId !== 'string') {
+        console.error('Error while setting slot: slotId is not a string')
+        return
+      }
+
+      if (slot !== null && typeof slot !== 'object') {
         console.error('Error while setting slot: slot is not an object')
         return
       }
 
-      SceneManager.getInstance().updateSlotWithJSON(canvasId, slot)
+      if (slot === null) {
+        SceneManager.getInstance().removeSlot(sceneId, slotId)
+      } else {
+        slot.id = slotId
+        SceneManager.getInstance().updateSlotWithJSON(sceneId, slot)
+      }
     })
 
     ipcMain.on('setWindow', (_, window: any) => {
@@ -145,9 +175,8 @@ export class WindowManager {
       SceneManager.getInstance().updateSceneWithJSON(scene)
     })
 
-    ipcMain.on('createScene', (_, canvasIds: any) => {
-
-      SceneManager.getInstance().createScene(canvasIds)
+    ipcMain.on('createScene', () => {
+      SceneManager.getInstance().createScene()
     })
 
     ipcMain.on('removeScene', (_, id: any) => {
@@ -168,22 +197,28 @@ export class WindowManager {
         return json
       })
     })
-
-    ipcMain.handle('getActiveScenes', () => {
-      return Object.fromEntries(Object.entries(SceneManager.getInstance().getActiveScenes()).map(([id, scene]) => [id, scene.id]))
+    ipcMain.handle('getScene', () => {
+      return SceneManager.getInstance().getActiveScene().toJSON()
     })
 
-    ipcMain.on('setActiveScenes', (_, canvasToSceneId: Record<string, string>) => {
-      for (const [canvasId, sceneId] of Object.entries(canvasToSceneId)) {
-        SceneManager.getInstance().setActiveSceneForCanvas(canvasId, sceneId)
+    ipcMain.handle('getActiveScene', () => {
+      return SceneManager.getInstance().getActiveScene().id
+    })
+
+    ipcMain.on('setActiveScene', (_, sceneId: string) => {
+      if (typeof sceneId !== 'string') {
+        console.error('Error while setting active scene: sceneId is not a string')
+        return
       }
+
+      SceneManager.getInstance().setActiveSceneFromId(sceneId)
     })
   }
 
   createBrowserWindow (window: Window) {
-    let canvas: Canvas | null = null
-    if (window.canvasId) {
-      canvas = SceneManager.getInstance().getCanvas(window.canvasId) ?? null
+    let slice: Slice | null = null
+    if (window.sliceId) {
+      slice = SceneManager.getInstance().getSlice(window.sliceId) ?? null
     }
 
     const win = new BrowserWindow({
@@ -191,7 +226,7 @@ export class WindowManager {
       height: window.rect.height,
       x: window.rect.x,
       y: window.rect.y,
-      title: `Canvas Viewer [${canvas?.name ?? 'No Canvas'}]`,
+      title: `Screener Slice Viewer [${slice?.name ?? 'No Slice'}]`,
 
       frame: false,
       transparent: true,
@@ -204,14 +239,14 @@ export class WindowManager {
         nodeIntegration: false,
         contextIsolation: true,
         webSecurity: false,
-        preload: join(__dirname, '../preload/video.js')
+        preload: join(__dirname, '../preload/sliceViewer.js')
       }
     })
 
     this.showingWindows ? win.show() : win.hide()
 
     if (process.env.VITE_DEV_SERVER_URL) { // electron-vite-vue#298
-      win.loadURL(process.env.VITE_DEV_SERVER_URL + '/canvas.html')
+      win.loadURL(process.env.VITE_DEV_SERVER_URL + '/sliceViewer.html')
     } else {
       win.loadFile(join(process.env.DIST, 'index.html'))
     }
@@ -239,7 +274,8 @@ export class WindowManager {
     })
 
     win.webContents.on('did-finish-load', () => {
-      win.webContents.send('canvasUpdate', canvas?.toJSON())
+      win.webContents.send('sliceUpdate', slice?.toJSON() ?? null)
+      win.webContents.send('sceneUpdate', SceneManager.getInstance().getActiveScene().toJSON())
     })
 
     const WM_INITMENU = 0x0116
@@ -327,18 +363,18 @@ export class WindowManager {
     const sm = SceneManager.getInstance()
 
     for (const window of this.windows) {
-      const canvasId = window.canvasId
+      const sliceId = window.sliceId
       if (!this.browserWindows[window.id]) {
-        if (!canvasId) {
-          console.error(`Canvas ID not found for window ${window.id}`)
+        if (!sliceId) {
+          console.error(`Slice ID not found for window ${window.id}`)
           continue
         }
 
-        const canvas = sm.getCanvas(canvasId)
+        const slice = sm.getSlice(sliceId)
 
-        if (!canvas) {
-          console.error(`Canvas ${canvasId} not found`)
-          window.canvasId = null
+        if (!slice) {
+          console.error(`Slice ${sliceId} not found`)
+          window.sliceId = null
           continue
         }
 
@@ -352,7 +388,7 @@ export class WindowManager {
 
         bwin.setBounds(window.rect.toJSON())
 
-        bwin.setTitle(`Canvas Viewer [${window.canvasId ? sm.getCanvas(window.canvasId)?.name : 'No Canvas'}]`)
+        bwin.setTitle(`Screener Slice Viewer [${window.sliceId ? sm.getSlice(window.sliceId)?.name : 'No Slice'}]`)
         this.showingWindows ? bwin.show() : bwin.hide()
       }
     }
@@ -377,12 +413,21 @@ export class WindowManager {
     mainWin?.webContents.send('windowUpdate', this.windows)
   }
 
-  updateCanvas (id: string, canvas: CanvasJSON | null) {
-    const windows = this.windows.filter(w => w.canvasId === id)
+  // updateCanvas (id: string, canvas: CanvasJSON | null) {
+  //   const windows = this.windows.filter(w => w.canvasId === id)
+  //   for (const win of windows) {
+  //     this.browserWindows[win.id]?.webContents.send('canvasUpdate', canvas)
+  //   }
+  //   mainWin?.webContents.send('canvasUpdate', id, canvas)
+  // }
+
+  updateSlice (id: string, slice: SliceJSON | null) {
+    console.log(`Updating slice ${id}`)
+    const windows = this.windows.filter(w => w.sliceId === id)
     for (const win of windows) {
-      this.browserWindows[win.id]?.webContents.send('canvasUpdate', canvas)
+      this.browserWindows[win.id]?.webContents.send('sliceUpdate', slice)
     }
-    mainWin?.webContents.send('canvasUpdate', id, canvas)
+    mainWin?.webContents.send('sliceUpdate', id, slice)
   }
 
   updateComponent (id: string, component: ComponentJSON | null) {
@@ -396,18 +441,34 @@ export class WindowManager {
   updateScene (id: string, scene: SceneJSON | null) {
     console.log(`Updating scene ${id}`)
 
-    const json: SceneJSON & {
-      sceneSetup?: any
-    } | null = scene
-    json && delete json.sceneSetup
-
-    mainWin?.webContents.send('sceneUpdate', id, json)
+    for (const win of Object.values(this.browserWindows)) {
+      win.webContents.send('sceneUpdate', scene)
+    }
+    mainWin?.webContents.send('sceneUpdate', id, scene)
   }
 
-  updateActiveScenes () {
-    console.log('Updating active scenes')
+  updateActiveScene (id: string) {
+    console.log('Updating active scene', id)
+    mainWin?.webContents.send('activeSceneChanged', id)
+    for (const win of Object.values(this.browserWindows)) {
+      win.webContents.send('sceneUpdate', SceneManager.getInstance().getActiveScene().toJSON())
+    }
+  }
 
-    mainWin?.webContents.send('activeScenesChanged', Object.fromEntries(Object.entries(SceneManager.getInstance().getActiveScenes()).map(([id, scene]) => [id, scene.id])))
+  invokeComponentAction (id: string, action: string, args: any[]) {
+    console.log(`Invoking component action ${action} on component ${id} with args`, ...args)
+
+    const component = SceneManager.getInstance().getComponent(id)
+    if (!component) {
+      throw new Error(`Component ${id} not found`)
+    }
+
+    component.call(action, ...args)
+
+    for (const win of Object.values(this.browserWindows)) {
+      win.webContents.send('componentAction', id, action, ...(args ?? []))
+    }
+    mainWin?.webContents.send('componentAction', id, action, ...(args ?? []))
   }
 
   setWindow (window: WindowJSON) {

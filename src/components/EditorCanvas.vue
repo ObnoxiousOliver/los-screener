@@ -13,7 +13,7 @@
         '--grid-scale': `${scale}`,
         '--grid-size': `${gridSize}px`
       }"
-      @click="select(null, 'remove')"
+      @click="editor.deselectAll()"
     />
     <div
       class="editor-canvas__grid"
@@ -21,49 +21,56 @@
         transform: `translate(${translate.x}px, ${translate.y}px)`
       }"
     >
-      <template
-        v-for="(canvas, i) in canvases"
-        :key="canvas.id"
-      >
+      <div class="editor-canvas__scene">
         <div
-          class="editor-canvas__canvas"
+          v-for="slice in slices"
+          :key="slice.id"
+          class="editor-canvas__scene__slice-background"
           :style="{
             position: 'absolute',
-            left: `${canvases.slice(0, i).reduce((acc, cur) => acc + (cur.size.x + 20) * scale, 0)}px`,
-            width: `${canvas.size.x * scale}px`,
-            height: `${canvas.size.y * scale}px`,
+            left: `${slice.rect.x * scale}px`,
+            top: `${slice.rect.y * scale}px`,
+            width: `${slice.rect.width * scale}px`,
+            height: `${slice.rect.height * scale}px`
           }"
+        />
+        <SceneRenderer
+          v-if="editor.activeScene"
+          :editor="editor"
+          :scene="editor.activeScene"
+          :style="{
+            transform: `scale(${scale})`
+          }"
+        />
+        <template
+          v-for="slice in slices"
+          :key="slice.id"
         >
-          <CanvasRenderer
-            :canvas="canvas"
-            :editor="editor"
-            :style="{
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left'
-            }"
-          />
-          <CanvasOverlay
-            :canvas="canvas"
-            :editor="editor"
-            :scale="scale"
-            @select="select"
-          />
           <div
-            class="editor-canvas__canvas__name"
-            :data-canvas-name="canvas.name.length === 0 ? '.' : canvas.name"
+            class="editor-canvas__slice"
+            :style="{
+              position: 'absolute',
+              left: `${slice.rect.x * scale}px`,
+              top: `${slice.rect.y * scale}px`,
+              width: `${slice.rect.width * scale}px`,
+              height: `${slice.rect.height * scale}px`
+            }"
           >
-            <input
-              :value="canvas.name"
-              type="text"
-              @input="(e) => {
-                const v = (e.target as HTMLInputElement).value
-                canvas.name = v
-                sendCanvasUpdate(canvas.id, canvas.toJSON())
-              }"
-            >
+            <div class="editor-canvas__slice__controls">
+              <EditorSliceNameInput
+                :slice="slice"
+                :editor="editor"
+              />
+            </div>
           </div>
-        </div>
-      </template>
+        </template>
+        <SceneOverlay
+          v-if="editor.activeScene"
+          :editor="editor"
+          :scene="editor.activeScene"
+          :scale="scale"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -71,37 +78,36 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Vec2 } from '../helpers/Vec2'
-import CanvasOverlay from './CanvasOverlay.vue'
-import CanvasRenderer from './CanvasRenderer.vue'
-import { Slot } from '../canvas/Slot'
-import { sendCanvasUpdate } from '../main'
 import { Editor } from '../editor/Editor'
+import EditorSliceNameInput from './EditorSliceNameInput.vue'
+import SceneRenderer from './SceneRenderer.vue'
+import SceneOverlay from './SceneOverlay.vue'
 
 const props = defineProps<{
   editor: Editor
 }>()
 
-const canvases = computed(() => props.editor.canvases)
+const slices = computed(() => props.editor.slices)
 const root = ref<HTMLElement>()
 
-const _translate = ref(new Vec2())
-const translate = computed({
-  get: () => _translate.value,
-  set: (v) => {
-    const padding = 100
-    const xView = root.value!.clientWidth
-    const yView = root.value!.clientHeight
-    const xCanvas = canvases.value.reduce((acc, cur) => acc + cur.size.x * scale.value, 0) + (canvases.value.length - 1) * 20 * scale.value
-    const yCanvas = canvases.value.reduce((acc, cur) => Math.max(acc, cur.size.y), 0) * scale.value
-    const maxX = xCanvas + xView / 2 - padding
-    const maxY = yCanvas + yView / 2 - padding
+const translate = ref(new Vec2())
+// const translate = computed({
+//   get: () => _translate.value,
+//   set: (v) => {
+//     const padding = 100
+//     const xView = root.value!.clientWidth
+//     const yView = root.value!.clientHeight
+//     const xCanvas = canvases.value.reduce((acc, cur) => acc + cur.size.x * scale.value, 0) + (canvases.value.length - 1) * 20 * scale.value
+//     const yCanvas = canvases.value.reduce((acc, cur) => Math.max(acc, cur.size.y), 0) * scale.value
+//     const maxX = xCanvas + xView / 2 - padding
+//     const maxY = yCanvas + yView / 2 - padding
 
-    _translate.value = new Vec2(
-      Math.min(xView / 2 - padding, Math.max(-maxX, v.x)),
-      Math.min(yView / 2 - padding, Math.max(-maxY, v.y))
-    )
-  }
-})
+//     _translate.value = new Vec2(
+//       Math.min(xView / 2 - padding, Math.max(-maxX, v.x)),
+//       Math.min(yView / 2 - padding, Math.max(-maxY, v.y))
+//     )
+//   }
+// })
 
 const scale = ref(1)
 
@@ -112,23 +118,6 @@ const gridSize = computed(() => {
   if (scale.value < 0.5) return 100
   return 50
 })
-
-function select (slot: Slot | null, action: 'multi' | 'single' | 'remove' = 'single') {
-  if (slot === null) {
-    props.editor.deselectAll()
-    return
-  }
-
-  if (action === 'single') {
-    props.editor.selectElement(slot.id)
-    return
-  }
-  if (action === 'remove') {
-    props.editor.deselectElement(slot.id)
-    return
-  }
-  props.editor.selectElement(slot.id, true)
-}
 
 function scaleFromPointOnScreen (point: Vec2, s: number) {
   if (!root.value) return
@@ -207,8 +196,8 @@ function onPointerdown (e: PointerEvent) {
 
     background:
       radial-gradient(
-        #1a1a1a 0%,
-        #1a1a1a 8%,
+        map-get(v.$grey, 'darken-4') 0%,
+        map-get(v.$grey, 'darken-4') 8%,
         transparent 8%,
         transparent 100%
       ),
@@ -223,50 +212,24 @@ function onPointerdown (e: PointerEvent) {
       calc(50% + var(--grid-offset-y) + var(--grid-size) / 2 * var(--grid-scale));
   }
 
-  // &__wrapper {
-  //   transform: translate(-50%, -50%);
-  //   width: fit-content;
-  //   height: fit-content;
-  //   display: flex;
-  //   flex-direction: row;
-  //   align-items: start;
-  //   justify-content: left;
-  //   gap: 3rem;
-  // }
-
-  &__canvas {
+  &__slice {
     position: relative;
-    outline: 1px solid v.$card-border-color;
+    outline: 2px dashed map-get(v.$grey, 'darken-3');
 
-    &__name {
+    &__controls {
+      pointer-events: all;
+      z-index: 1;
       position: absolute;
-      top: -1.6rem;
+      bottom: calc(100% + .2rem);
       left: 0;
-      min-width: 2rem;
-      height: fit-content;
-      padding: .2rem 1rem .2rem .2rem;
-      line-height: 1rem;
-      font-size: .8rem;
+    }
+  }
 
-      &::before {
-        opacity: 0;
-        white-space: pre;
-        content: attr(data-canvas-name);
-      }
+  &__scene {
+    pointer-events: none;
 
-      input {
-        padding: .2rem 1rem .2rem .2rem;
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        color: map-get(v.$grey, 'darken-1');
-
-        &:focus {
-          outline: 1px solid v.$primary;
-          color: black;
-          background: white;
-        }
-      }
+    &__slice-background {
+      background: #000;
     }
   }
 }

@@ -7,12 +7,6 @@ import { createVuetify } from 'vuetify'
 import colors from 'vuetify/util/colors'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
-import { CanvasJSON } from './canvas/Canvas'
-import { BridgeType } from './BridgeType'
-import { SlotJSON } from './canvas/Slot'
-import { ComponentJSON } from './canvas/Component'
-
-declare const bridge: BridgeType
 
 const vuetify = createVuetify({
   components,
@@ -36,15 +30,3 @@ createApp(App)
   .$nextTick(() => {
     postMessage({ payload: 'removeLoading' }, '*')
   })
-
-export function sendCanvasUpdate (id: string, canvas: CanvasJSON): void {
-  bridge.setCanvas(canvas)
-}
-
-export function sendComponentUpdate (component: ComponentJSON): void {
-  bridge.setComponent(component)
-}
-
-export function sendSlotUpdate (canvasId: string, slot: SlotJSON): void {
-  bridge.setSlot(canvasId, slot)
-}

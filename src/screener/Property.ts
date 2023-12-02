@@ -19,6 +19,14 @@ export type PropertyOptions = {
 } | {
   type: 'margin'
   labels?: [string, string, string, string]
+} | {
+  type: 'action'
+  call: () => void
+}
+
+export interface PropertyCtx {
+  update?: (value: any) => void
+  callAction?: (type: string, ...args: any[]) => void
 }
 
 export class Property <T> {

@@ -1,7 +1,9 @@
 import { id } from '../helpers/Id'
-import { Property } from './Property'
+import { Property, PropertyCtx } from './Property'
 import { JsonObject, TransferableObject } from './TransferableObject'
 import { BridgeType } from '../BridgeType'
+import { Slot } from './Slot'
+import { Editor } from '../editor/Editor'
 
 export interface ComponentOptions {
   id: string
@@ -16,6 +18,12 @@ export interface ComponentJSON extends JsonObject {
 
 export const ComponentMap: Record<string, (json: JsonObject) => Component> = {}
 
+export interface RenderCtx {
+  isEditor: boolean
+  editor?: Editor
+  components: Component[]
+}
+
 export abstract class Component extends TransferableObject {
   id: string
   name: string
@@ -29,9 +37,18 @@ export abstract class Component extends TransferableObject {
     this.type = type
   }
 
-  public abstract render (): HTMLElement
+  public abstract render (slot: Slot, ctx: RenderCtx): HTMLElement
 
-  getProperties (updateFn: (json: ComponentJSON) => void): Property<any>[] {
+  protected actions: Record<string, (...args: any) => void> = {}
+  public call (name: string, ...args: any[]): void {
+    const action = this.actions[name]
+    if (!action) {
+      throw new Error(`Action ${name} not found in component ${this.type}`)
+    }
+    action(...args)
+  }
+
+  getProperties (ctx: PropertyCtx): Property<any>[] {
     return [
       new Property(
         { type: 'text' },
@@ -40,7 +57,7 @@ export abstract class Component extends TransferableObject {
         (value) => {
           const json = this.toJSON()
           json.name = value
-          updateFn?.(json)
+          ctx.update?.(json)
         },
         -1
       )
@@ -55,18 +72,18 @@ export abstract class Component extends TransferableObject {
     }
   }
 
-  fromJSON (json: ComponentJSON): void {
-    this.id = json.id
-    this.name = json.name
-    this.type = json.type
+  fromJSON (json: Partial<ComponentJSON>): void {
+    if (json.id !== undefined && this.id !== json.id) this.id = json.id
+    if (json.name !== undefined && this.name !== json.name) this.name = json.name
+    if (json.type !== undefined && this.type !== json.type) this.type = json.type
   }
 
-  static fromJSON (json: ComponentJSON): Component {
-    const fromJSON = ComponentMap[json.type]
+  static fromJSON (json: Partial<ComponentJSON>): Component {
+    const fromJSON = ComponentMap[json.type ?? '']
     if (!fromJSON) {
       throw new Error(`Component type ${json.type} not found in ComponentMap.`)
     }
-    return fromJSON(json)
+    return fromJSON(json as JsonObject)
   }
 }
 

@@ -1,4 +1,4 @@
-import { JsonObject, TransferableObject } from '../canvas/TransferableObject'
+import { JsonObject, TransferableObject } from '../screener/TransferableObject'
 import { Vec2 } from './Vec2'
 
 export interface TransformMatrixJSON extends JsonObject {

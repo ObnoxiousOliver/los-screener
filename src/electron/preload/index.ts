@@ -95,29 +95,47 @@ setTimeout(removeLoading, 4999)
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { BridgeType } from '../../BridgeType'
-import { Rect } from '../../helpers/Rect'
-import { Window, WindowJSON } from '../../canvas/Window'
+import { WindowJSON } from '../../screener/Window'
 
 const bridge: BridgeType = {
   // Canvas Management
-  setCanvas(canvas) {
-    ipcRenderer.send('setCanvas', canvas)
+  // setCanvas(canvas) {
+  //   ipcRenderer.send('setCanvas', canvas)
+  // },
+  // removeCanvas(id) {
+  //   ipcRenderer.send('removeCanvas', id)
+  // },
+  // onCanvasUpdated(callback) {
+  //   ipcRenderer.on('canvasUpdate', (event, id, canvas) => {
+  //     callback(id, canvas)
+  //   })
+  // },
+  // getCanvases() {
+  //   return ipcRenderer.invoke('getCanvases')
+  // },
+
+  // Slice Management
+  setSlice(slice) {
+    ipcRenderer.send('setSlice', slice)
   },
-  removeCanvas(id) {
-    ipcRenderer.send('removeCanvas', id)
+  removeSlice(id) {
+    ipcRenderer.send('removeSlice', id)
   },
-  onCanvasUpdated(callback) {
-    ipcRenderer.on('canvasUpdate', (event, id, canvas) => {
-      callback(id, canvas)
+  onSliceUpdated(callback) {
+    ipcRenderer.on('sliceUpdate', (event, id, slice) => {
+      callback(id, slice)
     })
   },
-  getCanvases() {
-    return ipcRenderer.invoke('getCanvases')
+  getSlices() {
+    return ipcRenderer.invoke('getSlices')
   },
 
   // Component Management
   setComponent(component) {
     ipcRenderer.send('setComponent', component)
+  },
+  removeComponent(id) {
+    ipcRenderer.send('removeComponent', id)
   },
   onComponentUpdated(callback) {
     ipcRenderer.on('componentUpdate', (event, id, component) => {
@@ -127,13 +145,18 @@ const bridge: BridgeType = {
   getComponents() {
     return ipcRenderer.invoke('getComponents')
   },
-  invokeComponentAction(id, action, ...args) {
+  invokeComponentAction(id, action, args) {
     return ipcRenderer.invoke('invokeComponentAction', id, action, args)
+  },
+  onComponentActionInvoked(callback) {
+    ipcRenderer.on('componentAction', (event, id, action, args) => {
+      callback(id, action, args)
+    })
   },
 
   // Slot Management
-  setSlot(canvasId, slot) {
-    ipcRenderer.send('setSlot', canvasId, slot)
+  setSlot(sceneId, slotId, slot) {
+    ipcRenderer.send('setSlot', sceneId, slotId, slot)
   },
 
   // Window Management
@@ -145,17 +168,12 @@ const bridge: BridgeType = {
   },
   onWindowsUpdated(callback) {
     ipcRenderer.on('windowUpdate', (event, windows) => {
-      windows = Object.fromEntries(
-        Object.entries(windows)
-          .map(([id, window]) => [
-            id, Rect.fromJSON(window)
-          ]))
       callback(windows)
     })
   },
   async getWindows() {
     const windows: WindowJSON[] = await ipcRenderer.invoke('getWindows')
-    return windows.map(w => Window.fromJSON(w))
+    return windows
   },
   showWindows() {
     ipcRenderer.send('showWindows')
@@ -192,15 +210,15 @@ const bridge: BridgeType = {
     return ipcRenderer.invoke('getScenes')
   },
 
-  setActiveScenes(canvasToSceneId) {
-    ipcRenderer.send('setActiveScenes', canvasToSceneId)
+  setActiveScene(id) {
+    ipcRenderer.send('setActiveScene', id)
   },
 
-  onActiveScenesChanged(callback) {
-    ipcRenderer.on('activeScenesChanged', (event, canvasToSceneId) => {
-      callback(canvasToSceneId)
+  onActiveSceneChanged(callback) {
+    ipcRenderer.on('activeSceneChanged', (event, id) => {
+      callback(id)
     })
-    ipcRenderer.invoke('getActiveScenes').then(callback)
+    ipcRenderer.invoke('getActiveScene').then(callback)
   }
 }
 

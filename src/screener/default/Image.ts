@@ -1,5 +1,6 @@
 import { Component, ComponentJSON, ComponentOptions, requestMedia } from '../Component'
-import { Property } from '../Property'
+import { Property, PropertyCtx } from '../Property'
+import { Slot } from '../Slot'
 
 export type ImageFit = 'contain' | 'cover' | 'fill'
 
@@ -30,50 +31,53 @@ export class Image extends Component {
     this.fit = options.objectFit ?? ImageDefaults.objectFit
   }
 
-  private element: HTMLImageElement | null = null
-  public override render (): HTMLImageElement {
+  private elements: Record<string, HTMLImageElement> = {}
+  override render(slot: Slot): HTMLImageElement {
     if (!document) {
       throw new Error('No document found')
     }
 
-    if (!this.element) {
-      this.element = document.createElement('img')
-      this.element.style.position = 'absolute'
-      this.element.style.width = '100%'
-      this.element.style.height = '100%'
-      this.element.dataset.id = this.id
-      this.element.style.fontFamily = 'sans-serif'
-      this.element.style.color = 'white'
+    let element = this.elements[slot.id]
+
+    if (!element) {
+      element = document.createElement('img')
+      element.style.position = 'absolute'
+      element.style.width = '100%'
+      element.style.height = '100%'
+      element.dataset.id = this.id
+      element.style.fontFamily = 'sans-serif'
+      element.style.color = 'white'
+      this.elements[slot.id] = element
     }
 
-    if (this.element.dataset.src !== this.src) {
+    if (element.dataset.src !== this.src) {
       const requestedSrc = this.src
 
-      this.element.src = ''
-      this.element.alt = 'Loading...'
+      element.src = ''
+      element.alt = 'Loading...'
       requestMedia(this.id, this.src).then((src) => {
-        if (!this.element) return
+        if (!element) return
         if (requestedSrc !== this.src) return
 
         if (src === null) {
-          this.element.alt = `Failed to load "${this.src}"`
+          element.alt = `Failed to load "${this.src}"`
         }
 
-        if (this.element.getAttribute('src') !== src ?? '') {
-          this.element.dataset.src = this.src
-          this.element.src = src ?? ''
+        if (element.getAttribute('src') !== src ?? '') {
+          element.dataset.src = this.src
+          element.src = src ?? ''
         }
       })
     }
 
-    if (this.element.style.objectFit !== this.fit) this.element.style.objectFit = this.fit
+    if (element.style.objectFit !== this.fit) element.style.objectFit = this.fit
 
-    return this.element
+    return element
   }
 
-  override getProperties(updateFn: (json: ComponentJSON) => void): Property<any>[] {
+  override getProperties(ctx: PropertyCtx): Property<any>[] {
     return [
-      ...super.getProperties(updateFn),
+      ...super.getProperties(ctx),
       new Property(
         {
           type: 'text',
@@ -84,7 +88,7 @@ export class Image extends Component {
         (value) => {
           const json = this.toJSON()
           json.src = value
-          updateFn?.(json)
+          ctx.update?.(json)
         }
       ),
       new Property(
@@ -98,7 +102,7 @@ export class Image extends Component {
         (value) => {
           const json = this.toJSON()
           json.fit = value
-          updateFn?.(json)
+          ctx.update?.(json)
         }
       )
     ]

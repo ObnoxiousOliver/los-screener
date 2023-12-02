@@ -1,4 +1,4 @@
-import { TransferableObject } from '../canvas/TransferableObject'
+import { TransferableObject } from '../screener/TransferableObject'
 
 export class Vec2 extends TransferableObject {
   x: number

@@ -71,7 +71,7 @@ export default defineConfig(({ command }) => {
           }
         },
         {
-          entry: 'src/electron/preload/video.ts',
+          entry: 'src/electron/preload/sliceViewer.ts',
           onstart({ reload }) {
             // Notify the Renderer process to reload the page when the Preload scripts build is complete,
             // instead of restarting the entire Electron App.

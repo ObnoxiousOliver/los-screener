@@ -1,4 +1,4 @@
-import { JsonObject, TransferableObject } from '../canvas/TransferableObject'
+import { JsonObject, TransferableObject } from '../screener/TransferableObject'
 import { Vec2 } from './Vec2'
 
 export interface RectJSON extends JsonObject {
@@ -61,6 +61,14 @@ export class Rect extends TransferableObject {
 
   equals(rect: Rect) {
     return this.x === rect.x && this.y === rect.y && this.width === rect.width && this.height === rect.height
+  }
+
+  static union(...rects: Rect[]) {
+    const left = Math.min(...rects.map(r => r.left))
+    const top = Math.min(...rects.map(r => r.top))
+    const right = Math.max(...rects.map(r => r.right))
+    const bottom = Math.max(...rects.map(r => r.bottom))
+    return new Rect(left, top, right - left, bottom - top)
   }
 
   toJSON() {

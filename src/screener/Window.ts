@@ -7,7 +7,7 @@ export type WindowFit = 'contain' | 'cover' | 'fill'
 export interface WindowJSON extends JsonObject {
   id: string
   rect: RectJSON
-  canvasId: string | null
+  sliceId: string | null
 }
 
 export interface WindowOptions {
@@ -21,14 +21,14 @@ export const WindowDefaults: WindowOptions = {
 export class Window extends TransferableObject {
   id: string
   rect: Rect
-  canvasId: string | null
+  sliceId: string | null
   fit: WindowFit = 'contain'
 
-  constructor (rect: Rect, canvasId: string | null = null, options?: Partial<WindowOptions>) {
+  constructor (rect: Rect, sliceId: string | null = null, options?: Partial<WindowOptions>) {
     super()
     this.id = options?.id ?? id()
     this.rect = rect
-    this.canvasId = canvasId
+    this.sliceId = sliceId
     this.fit = options?.fit ?? WindowDefaults.fit
   }
 
@@ -36,7 +36,7 @@ export class Window extends TransferableObject {
     return {
       id: this.id,
       rect: this.rect.toJSON(),
-      canvasId: this.canvasId
+      sliceId: this.sliceId
     }
   }
 
@@ -45,7 +45,7 @@ export class Window extends TransferableObject {
   }
 
   static fromJSON (json: WindowJSON): Window {
-    return new Window(Rect.fromJSON(json.rect), json.canvasId, {
+    return new Window(Rect.fromJSON(json.rect), json.sliceId, {
       id: json.id
     })
   }

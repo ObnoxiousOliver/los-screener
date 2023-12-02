@@ -44,12 +44,12 @@ export class Slot extends TransferableObject {
     }
   }
 
-  fromJSON (json: SlotJSON): void {
-    if (this.id !== json.id) this.id = json.id
-    if (this.componentId !== json.component) this.componentId = json.component
-    if (!this.rect.equals(Rect.fromJSON(json.rect))) this.rect = Rect.fromJSON(json.rect)
-    if (!this.crop.equals(Margin.fromJSON(json.crop))) this.crop = Margin.fromJSON(json.crop)
-    if (!this.transformMatrix.equals(TransformMatrix.fromJSON(json.transformMatrix))) this.transformMatrix = TransformMatrix.fromJSON(json.transformMatrix)
+  fromJSON (json: Partial<SlotJSON>): void {
+    if (json.id !== undefined && this.id !== json.id) this.id = json.id
+    if (json.component !== undefined && this.componentId !== json.component) this.componentId = json.component
+    if (json.rect !== undefined && !this.rect.equals(Rect.fromJSON(json.rect))) this.rect = Rect.fromJSON(json.rect)
+    if (json.crop !== undefined && !this.crop.equals(Margin.fromJSON(json.crop))) this.crop = Margin.fromJSON(json.crop)
+    if (json.transformMatrix !== undefined && !this.transformMatrix.equals(TransformMatrix.fromJSON(json.transformMatrix))) this.transformMatrix = TransformMatrix.fromJSON(json.transformMatrix)
   }
 
   static fromJSON (json: SlotJSON): Slot {

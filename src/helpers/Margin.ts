@@ -1,4 +1,4 @@
-import { JsonObject, TransferableObject } from '../canvas/TransferableObject'
+import { JsonObject, TransferableObject } from '../screener/TransferableObject'
 
 export interface MarginJSON extends JsonObject {
   top: number

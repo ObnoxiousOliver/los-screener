@@ -18,11 +18,15 @@
               v-for="scene in editor.scenes"
               :key="scene.id"
               :title="scene.name"
-              @click="editor.setActiveSceneToAllCanvases(scene.id)"
+              @click="editor.setActiveScene(scene.id)"
             />
             <VListItem
               title="Create new scene"
               @click="editor.createScene()"
+            />
+            <VListItem
+              title="Windows"
+              @click="setWindows()"
             />
           </VList>
         </VNavigationDrawer>
@@ -39,9 +43,7 @@
       <ComponentList :editor="editor" />
     </VNavigationDrawer>
     <VMain>
-      <EditorCanvas
-        :editor="editor"
-      />
+      <EditorCanvas :editor="editor" />
     </VMain>
     <VNavigationDrawer
       location="right"
@@ -137,6 +139,13 @@
             :label="selectedPropertiesValue.label"
             variant="outlined"
           />
+          <VBtn
+            v-else-if="selectedPropertiesValue.options.type === 'action'"
+            variant="outlined"
+            @click="selectedPropertiesValue.options.call()"
+          >
+            {{ selectedPropertiesValue.label }}
+          </VBtn>
         </template>
       </VContainer>
     </VNavigationDrawer>
@@ -144,58 +153,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed , Ref } from 'vue'
-import { Canvas } from './canvas/Canvas'
-import EditorCanvas from './components/EditorCanvas.vue'
-import Vec2Input from './components/Vec2Input.vue'
-import Vec4Input from './components/Vec4Input.vue'
-import { ComponentFactory } from './canvas/Component'
-import { Property } from './canvas/Property'
-import { Slot } from './canvas/Slot'
-import { sendCanvasUpdate, sendComponentUpdate } from './main'
-import { Rect } from './helpers/Rect'
-import { Margin } from './helpers/Margin'
-import { Vec2 } from './helpers/Vec2'
-import { DefaultPlugin } from './canvas/default/defaultPlugin'
-import { VTextarea } from 'vuetify/lib/components/index.mjs'
-import TextInput from './components/TextInput.vue'
-import { Editor } from './editor/Editor'
 import ComponentList from './components/ComponentList.vue'
+import { computed , Ref , ref } from 'vue'
+import EditorCanvas from './components/EditorCanvas.vue'
+import { Margin } from './helpers/Margin'
+import { Rect } from './helpers/Rect'
+import { Vec2 } from './helpers/Vec2'
+import { Property } from './screener/Property'
+import Vec4Input from './components/Vec4Input.vue'
+import Vec2Input from './components/Vec2Input.vue'
+import TextInput from './components/TextInput.vue'
+import { ComponentFactory } from './screener/Component'
+import { DefaultPlugin } from './screener/default/defaultPlugin'
+import { Editor } from './editor/Editor'
+import { Window } from './screener/Window'
 
 const selectedProperties = computed(() => {
   if (editor.value.selectedElements.length !== 1) return []
 
-  const slotOrCanvas = editor.value.getSelected()[0]
-  if (!slotOrCanvas) return []
+  const slot = editor.value.getSelected()[0]
+  if (!slot) return []
 
-  if (editor.value.canvases.includes(slotOrCanvas as Canvas)) {
-    const canvas = slotOrCanvas as Canvas
-    return [
-      new Property(
-        { type: 'text' },
-        'Name',
-        () => canvas.name,
-        (v) => {
-          canvas.name = v
-          sendCanvasUpdate(canvas.id, canvas.toJSON())
-        }
-      ),
-      new Property(
-        { type: 'vec2', labels: ['Width', 'Height'] },
-        'Size',
-        () => Vec2.clone(canvas.size),
-        (v) => {
-          canvas.size = Vec2.clone(v)
-          sendCanvasUpdate(canvas.id, canvas.toJSON())
-        }
-      )
-    ]
-  }
-  const slot = slotOrCanvas as Slot
   const component = editor.value.getComponent(slot.componentId)
-  const canvas = (editor.value.canvases as Canvas[]).find((c) => c.children.includes((slot)))
-
-  if (!canvas || !component) return []
 
   return [
     new Property(
@@ -203,8 +182,9 @@ const selectedProperties = computed(() => {
       'Rect',
       () => Rect.clone(slot.rect),
       (v) => {
-        slot.rect = Rect.clone(v)
-        sendCanvasUpdate(canvas.id, canvas.toJSON())
+        editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
+          rect: v.toJSON()
+        })
       }
     ),
     new Property(
@@ -212,13 +192,19 @@ const selectedProperties = computed(() => {
       'Crop',
       () => Margin.clone(slot.crop),
       (v) => {
-        slot.crop = Margin.clone(v)
-        sendCanvasUpdate(canvas.id, canvas.toJSON())
+        editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
+          crop: v.toJSON()
+        })
       }
     ),
-    ...component.getProperties((json) => {
-      sendComponentUpdate(json)
-    })
+    ...(component?.getProperties({
+      callAction: (action, args) => {
+        editor.value.sendComponentAction(slot.componentId, action, args)
+      },
+      update: (json) => {
+        editor.value.sendComponentUpdate(slot.componentId, json)
+      }
+    }) ?? [])
   ].sort((a, b) => {
     if (a.order === b.order) return 0
     if (a.order === undefined) return 1
@@ -229,6 +215,18 @@ const selectedProperties = computed(() => {
 
 ComponentFactory.registerPlugin(DefaultPlugin)
 const editor = ref(new Editor(true)) as Ref<Editor>
+
+function setWindows () {
+  editor.value.setWindow(new Window(
+    new Rect(0, 0, 1920, 1080),
+    editor.value.slices[0].id
+  ))
+  editor.value.setWindow(new Window(
+    new Rect(0, 0, 1920, 1080),
+    editor.value.slices[1].id
+  ))
+  editor.value.showWindows()
+}
 </script>
 
 <style lang="scss">

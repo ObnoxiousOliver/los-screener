@@ -1,5 +1,6 @@
 import { Component, ComponentJSON, ComponentOptions } from '../Component'
-import { Property } from '../Property'
+import { Property, PropertyCtx } from '../Property'
+import { Slot } from '../Slot'
 
 export interface TextOptions {
   content: string
@@ -28,33 +29,36 @@ export class Text extends Component {
     this.fontSize = options.fontSize ?? TextDefaults.fontSize
   }
 
-  private element: HTMLDivElement | null = null
-  public override render (): HTMLDivElement {
+  private elements: Record<string, HTMLDivElement> = {}
+  public override render (slot: Slot): HTMLDivElement {
     if (!document) {
       throw new Error('No document found')
     }
 
-    if (!this.element) {
-      this.element = document.createElement('div')
-      this.element.style.position = 'absolute'
-      this.element.style.width = '100%'
-      this.element.style.height = '100%'
-      this.element.style.fontFamily = 'sans-serif'
-      this.element.style.color = 'white'
-      this.element.style.overflow = 'hidden'
-      this.element.style.wordBreak = 'break-word'
-      this.element.style.lineHeight = '1.5'
+    let element = this.elements[slot.id]
+
+    if (!element) {
+      element = document.createElement('div')
+      element.style.position = 'absolute'
+      element.style.width = '100%'
+      element.style.height = '100%'
+      element.style.fontFamily = 'sans-serif'
+      element.style.color = 'white'
+      element.style.overflow = 'hidden'
+      element.style.wordBreak = 'break-word'
+      element.style.lineHeight = '1.5'
+      this.elements[slot.id] = element
     }
 
-    this.element.innerText = this.content
-    this.element.style.fontSize = `${this.fontSize}px`
+    element.innerText = this.content
+    element.style.fontSize = `${this.fontSize}px`
 
-    return this.element
+    return element
   }
 
-  override getProperties(updateFn: (json: ComponentJSON) => void): Property<any>[] {
+  override getProperties(ctx: PropertyCtx): Property<any>[] {
     return [
-      ...super.getProperties(updateFn),
+      ...super.getProperties(ctx),
       new Property(
         { type: 'textbox' },
         'Content',
@@ -62,7 +66,7 @@ export class Text extends Component {
         (value) => {
           const json = this.toJSON()
           json.content = value
-          updateFn?.(json)
+          ctx.update?.(json)
         }
       ),
       new Property(
@@ -72,7 +76,7 @@ export class Text extends Component {
         (value) => {
           const json = this.toJSON()
           json.fontSize = value
-          updateFn?.(json)
+          ctx.update?.(json)
         }
       )
     ]
