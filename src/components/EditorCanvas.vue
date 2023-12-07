@@ -8,8 +8,8 @@
     <div
       class="editor-canvas__bg"
       :style="{
-        '--grid-offset-x': `${translate.x % (gridSize * scale)}px`,
-        '--grid-offset-y': `${translate.y % (gridSize * scale)}px`,
+        '--grid-offset-x': `${translate.x % (gridSize * scale) + (gridSize * scale) / 2}px`,
+        '--grid-offset-y': `${translate.y % (gridSize * scale) + (gridSize * scale) / 2}px`,
         '--grid-scale': `${scale}`,
         '--grid-size': `${gridSize}px`
       }"
@@ -137,11 +137,12 @@ function scaleFromPointOnScreen (point: Vec2, s: number) {
 }
 
 function onWheel (e: WheelEvent) {
+  console.log(e)
   if (!root.value) return
   if (grabbing.value) return
 
   if (e.ctrlKey) {
-    const newScale = scale.value * (1 - e.deltaY / 300)
+    const newScale = scale.value * (1 - Math.min(500, e.deltaY / 200))
     scaleFromPointOnScreen(new Vec2(e.clientX, e.clientY), newScale)
   } else {
     const delta = new Vec2(e.deltaX, e.deltaY)
