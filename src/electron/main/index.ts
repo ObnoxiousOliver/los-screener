@@ -15,7 +15,6 @@ import { SceneManager } from '../../screener/SceneManager'
 // ├─┬ dist
 // │ └── index.html    > Electron-Renderer
 //
-app.commandLine.appendSwitch('disable-pinch')
 
 process.env.DIST_ELECTRON = join(__dirname, '..')
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
