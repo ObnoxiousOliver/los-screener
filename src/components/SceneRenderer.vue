@@ -17,8 +17,6 @@ const props = defineProps<{
   editor: Editor
 }>()
 
-const slotElements = ref<HTMLDivElement[]>([])
-
 onMounted(() => {
   if (root.value) {
     root.value.attachShadow({ mode: 'open' })
@@ -26,24 +24,14 @@ onMounted(() => {
 })
 
 watchEffect(() => {
-  if (root.value) {
-    if (!slotElements.value) {
-      root.value.shadowRoot?.replaceChildren()
-    } else {
-      root.value.shadowRoot?.replaceChildren(...slotElements.value)
-    }
-  }
-})
-
-watchEffect(() => {
   if (!root.value) return
   if (props.scene) {
-    const scene = props.scene
-    slotElements.value = scene.render({
+    const els = props.scene.render({
       isEditor: true,
       editor: props.editor,
       components: props.editor.components
     })
+    root.value.shadowRoot?.replaceChildren(...els)
   }
 })
 </script>

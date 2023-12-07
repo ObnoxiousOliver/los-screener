@@ -64,10 +64,10 @@ export class Rect extends TransferableObject {
   }
 
   static union(...rects: Rect[]) {
-    const left = Math.min(...rects.map(r => r.left))
-    const top = Math.min(...rects.map(r => r.top))
-    const right = Math.max(...rects.map(r => r.right))
-    const bottom = Math.max(...rects.map(r => r.bottom))
+    const left = Math.min(...rects.map(r => r.left), 0)
+    const top = Math.min(...rects.map(r => r.top), 0)
+    const right = Math.max(...rects.map(r => r.right), 0)
+    const bottom = Math.max(...rects.map(r => r.bottom), 0)
     return new Rect(left, top, right - left, bottom - top)
   }
 

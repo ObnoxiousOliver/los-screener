@@ -2,19 +2,23 @@
 import { app } from 'electron'
 import { Rect } from '../helpers/Rect'
 import { Component, ComponentFactory, ComponentJSON } from './Component'
-import { Playback } from './Playback'
+import { Playback, PlaybackJSON } from './Playback'
 import { Scene, SceneJSON } from './Scene'
 import { Slice, SliceJSON } from './Slice'
-import { Slot, SlotJSON } from './Slot'
-import { JsonObject } from './TransferableObject'
 import { WindowManager } from './WindowManager'
-import { Text } from './default/Text'
-import { Video } from './default/Video'
 import { DefaultPlugin } from './default/defaultPlugin'
 import * as fs from 'fs/promises'
 import { join } from 'path'
 import mime from 'mime'
 import { id } from '../helpers/Id'
+import { Slot, SlotJSON } from './Slot'
+
+export interface ProjectJSON {
+  scenes: SceneJSON[]
+  activeScene: string
+  slices: SliceJSON[]
+  components: ComponentJSON[]
+}
 
 export class SceneManager {
   private scenes: Scene[] = []
@@ -32,30 +36,16 @@ export class SceneManager {
       rect: new Rect(0, 0, 1920, 1080)
     })
     this.slices.push(defaultSlice)
-    this.slices.push(new Slice({
-      name: 'Slice',
-      rect: new Rect(1920, 0, 1920, 1080)
-    }))
 
     const defaultScene = this.createSceneRaw()
-    this.components.push(new Video({
-      name: 'Image',
-      src: 'https://www.w3schools.com/html/mov_bbb.mp4'
-    }))
-    defaultScene.addSlot(new Slot(new Rect(0, 0, 200, 300), this.components[0].id))
-
-    this.components.push(new Text({
-      name: 'Text',
-      content: 'Hello World!'
-    }))
-    defaultScene.addSlot(new Slot(new Rect(0, 0, 200, 300), this.components[1].id))
-    this.activeScene = this.scenes[0]
-
     this.addScene(defaultScene)
+    this.activeScene = defaultScene
 
     this.checkActiveScene()
+    this.pushHistoryNow()
   }
 
+  // #region Updates
   // private canvasUpdated (id: string, canvas: Canvas | null): void {
   //   this.checkActiveScenes()
 
@@ -72,7 +62,19 @@ export class SceneManager {
   // }
 
   private sliceUpdated (id: string, slice: Slice | null): void {
+    if (slice) {
+      this.activeScene.sliceSetup[id] = slice?.rect ?? new Rect()
+    } else {
+      delete this.activeScene.sliceSetup[id]
+    }
+
+    this.activeSceneUpdated()
+
     WindowManager.getInstance().updateSlice(id, slice?.toJSON() ?? null)
+  }
+
+  public sceneUpdated (id: string, scene: Scene | null): void {
+    WindowManager.getInstance().updateScene(id, scene?.toJSON() ?? null)
   }
 
   private activeSceneUpdated (): void {
@@ -90,7 +92,13 @@ export class SceneManager {
     WindowManager.getInstance().updateComponent(id, component?.toJSON() ?? null)
   }
 
-  // Scenes
+  private playbackUpdated (id: string, playback: Playback | null): void {
+    WindowManager.getInstance().updatePlayback(id, playback?.toJSON() ?? null)
+  }
+
+  // #endregion
+
+  // #region Scenes
   public setActiveScene (scene: Scene): void {
     // const scene = this.scenes.find(s => s.id === id)
     // if (!scene) {
@@ -190,30 +198,29 @@ export class SceneManager {
     return this.scenes
   }
 
-  public createScene (): Scene {
+  public createScene (recordHistory = true): Scene {
     const scene = this.createSceneRaw()
     this.addScene(scene)
+    recordHistory && this.pushHistoryNow()
     return scene
   }
 
   private createSceneRaw (): Scene {
     const scene = new Scene()
     scene.sliceSetup = Object.fromEntries(this.slices.map(s => [s.id, new Rect()]))
-
     return scene
   }
 
-  public removeScene (id: string): void {
+  public removeScene (id: string, recordHistory = true): void {
     const sceneToActive = this.scenes[this.scenes.findIndex(s => s.id === id) - 1] ?? this.scenes[this.scenes.findIndex(s => s.id === id) + 1]
     this.scenes = this.scenes.filter(s => s.id !== id)
     this.sceneUpdated(id, null)
     this.setActiveScene(sceneToActive ?? this.scenes[0])
+    recordHistory && this.pushHistoryNow()
   }
+  // #endregion
 
-  public sceneUpdated (id: string, scene: Scene | null): void {
-    WindowManager.getInstance().updateScene(id, scene?.toJSON() ?? null)
-  }
-
+  // #region Slots
   public removeSlot (sceneId: string, slotId: string): void {
     const scene = this.scenes.find(c => c.id === sceneId)
     if (!scene) {
@@ -230,8 +237,9 @@ export class SceneManager {
     scene.removeSlot(slot)
     this.sceneUpdated(sceneId, scene)
   }
+  // #endregion
 
-  // Slices
+  // #region Slices
   public getSlices (): Slice[] {
     return this.slices
   }
@@ -250,23 +258,28 @@ export class SceneManager {
     this.sliceUpdated(slice.id, slice)
   }
 
-  public addSlice (slice: Slice): void {
+  public addSlice (slice: Slice, recordHistory = true): void {
     this.slices.push(slice)
     this.sliceUpdated(slice.id, slice)
+    recordHistory && this.pushHistoryNow()
   }
 
-  public removeSlice (id: string): void {
+  public removeSlice (id: string, recordHistory = true): void {
     const index = this.slices.findIndex(s => s.id === id)
     if (index > -1) {
+      console.log(`Removing slice with id ${id}.`)
       this.slices.splice(index, 1)
     } else {
       console.warn(`Slice with id ${id} not found in SceneManager.`)
     }
 
+    this.sceneUpdated
     this.sliceUpdated(id, null)
+    recordHistory && this.pushHistoryNow()
   }
+  // #endregion
 
-  // Canvases
+  // #region Canvas
   // public getCanvases (): Canvas[] {
   //   return this.canvases.filter(c => c)
   // }
@@ -300,8 +313,9 @@ export class SceneManager {
 
   //   this.canvasUpdated(id, null)
   // }
+  // #endregion
 
-  // Components
+  // #region Components
   public getComponents (): Component[] {
     return this.components
   }
@@ -310,7 +324,7 @@ export class SceneManager {
     return this.components.find(c => c.id === id)
   }
 
-  public removeComponent (id: string): void {
+  public removeComponent (id: string, recordHistory = true): void {
     const index = this.components.findIndex(c => c.id === id)
     if (index > -1) {
       this.components.splice(index, 1)
@@ -319,31 +333,79 @@ export class SceneManager {
     }
 
     this.componentUpdated(id, null)
+    recordHistory && this.pushHistoryNow()
   }
+  // #endregion
 
-  // Playbacks
+  // #region Playbacks
   public getPlaybacks (): Playback[] {
     return this.playbacks
   }
 
-  public addPlayback (playback: Playback): void {
-    this.playbacks.push(playback)
+  public getPlayback (id: string): Playback | undefined {
+    return this.playbacks.find(p => p.id === id)
   }
 
-  public removePlayback (id: string): void {
-    this.playbacks = this.playbacks.filter(p => p.id !== id)
+  public removePlayback (id: string, recordHistory = true): void {
+    const index = this.playbacks.findIndex(p => p.id === id)
+    if (index > -1) {
+      this.playbacks.splice(index, 1)
+    } else {
+      console.warn(`Playback with id ${id} not found in SceneManager.`)
+    }
+
+    if (this.activePlayback?.id === id) {
+      this.setActivePlayback(null)
+    }
+
+    this.playbackUpdated(id, null)
+    recordHistory && this.pushHistoryNow()
   }
 
+  private activePlayback: Playback | null = null
+  private playbackInterval: NodeJS.Timeout | null = null
   public startPlayback (id: string): void {
     const playback = this.playbacks.find(p => p.id === id)
     if (!playback) {
       throw new Error(`Playback with id ${id} not found in SceneManager.`)
     }
 
-    throw new Error('Not implemented.')
+    this.activePlayback = playback
+
+    if (this.playbackInterval) {
+      clearInterval(this.playbackInterval)
+    }
+
+    this.playbackInterval = setInterval(() => {
+    }, 1000 / 60)
   }
 
-  // Media
+  public setActivePlayback (playback: Playback | null): void {
+    this.activePlayback = playback
+    WindowManager.getInstance().updateActivePlayback(playback?.id ?? null)
+  }
+
+  public setActivePlaybackFromId (id: string | null): void {
+    if (!id) {
+      this.setActivePlayback(null)
+      return
+    }
+
+    const playback = this.playbacks.find(p => p.id === id)
+    if (!playback) {
+      console.warn(`Playback with id ${id} not found in SceneManager.`)
+      return
+    }
+
+    this.setActivePlayback(playback)
+  }
+
+  public getActivePlayback (): Playback | null {
+    return this.activePlayback
+  }
+  // #endregion
+
+  // #region Media
   private mediaCache: Record<string, {
     value: string | null
     promise: Promise<string | null> | null
@@ -427,8 +489,9 @@ export class SceneManager {
 
     return await promise
   }
+  // #endregion
 
-  // JSON
+  // #region JSON
   // public updateCanvasWithJSON (json: CanvasJSON): void {
   //   console.log(json)
   //   let canvas = this.canvases.find(c => c.id === json.id)
@@ -444,7 +507,7 @@ export class SceneManager {
   //   this.canvasUpdated(json.id, canvas)
   // }
 
-  public updateSliceWithJSON (json: Partial<SliceJSON>): void {
+  public updateSliceWithJSON (json: Partial<SliceJSON>, recordHistory = true): void {
     if (!json.id) throw new Error('Slice id not found in JSON.')
 
     let slice = this.slices.find(s => s.id === json.id)
@@ -453,57 +516,91 @@ export class SceneManager {
       slice = Slice.fromJSON(json)
       this.setSlice(slice)
       console.log(`Slice with id ${json.id} added.`)
+      this.sliceUpdated(json.id, slice)
+      recordHistory && this.pushHistoryNow()
     } else {
       slice.fromJSON(json)
       console.log(`Slice with id ${json.id} updated.`)
+      this.sliceUpdated(json.id, slice)
+      recordHistory && this.pushHistory()
     }
-
-    this.sliceUpdated(json.id, slice)
   }
 
-  public updateComponentWithJSON (json: Partial<ComponentJSON>): void {
-    if (!json.id) throw new Error('Component id not found in JSON.')
+  public updateComponentWithJSON (json: Partial<ComponentJSON>, recordHistory = true): void {
+    if (!json.id) {
+      const component = Component.fromJSON(json)
+      this.components.push(component)
+      recordHistory && this.pushHistoryNow()
+      return
+    }
 
-    const component = this.components.find(c => c.id === json.id)
+    let component = this.components.find(c => c.id === json.id)
     if (!component) {
-      throw new Error(`Component with id ${json.id} not found in SceneManager.`)
+      component = Component.fromJSON(json)
+      this.components.push(component)
+    } else {
+      component.fromJSON(json)
     }
 
-    component.fromJSON(json)
     this.componentUpdated(json.id, component)
+    recordHistory && this.pushHistory()
   }
 
-  public updateSceneWithJSON (json: Partial<SceneJSON>): void {
-    if (!json.id) throw new Error('Scene id not found in JSON.')
-
-    const scene = this.scenes.find(s => s.id === json.id)
-    if (!scene) {
-      throw new Error(`Scene with id ${json.id} not found in SceneManager.`)
+  public updateSceneWithJSON (json: Partial<SceneJSON>, recordHistory = true): void {
+    if (!json.id) {
+      const scene = Scene.fromJSON(json)
+      this.addScene(scene)
+      recordHistory && this.pushHistoryNow()
+      return
     }
 
-    scene.fromJSON(json)
+    let scene = this.scenes.find(s => s.id === json.id)
+    if (!scene) {
+      scene = Scene.fromJSON(json)
+      this.addScene(scene)
+    } else {
+      scene.fromJSON(json)
+    }
+
     if (this.activeScene === scene) {
       this.activeSceneUpdated()
     }
     this.sceneUpdated(json.id, scene)
+    recordHistory && this.pushHistory()
   }
 
-  public updateSlotWithJSON (sceneId: string, json: Partial<SlotJSON>): void {
+  public updateSlotWithJSON (sceneId: string, json: Partial<SlotJSON>, recordHistory = true): void {
     const scene = this.scenes.find(c => c.id === sceneId)
     if (!scene) {
       throw new Error(`Scene with id ${sceneId} not found in SceneManager.`)
     }
 
-    const slot = scene.slots.find(s => s.id === json.id)
+    let slot = scene.slots.find(s => s.id === json.id)
     if (!slot) {
-      throw new Error(`Slot with id ${json.id} not found in SceneManager.`)
+      slot = Slot.fromJSON(json)
+      scene.addSlot(slot)
+    } else {
+      slot.fromJSON(json)
     }
 
-    slot.fromJSON(json)
     this.sceneUpdated(sceneId, this.activeScene)
+    recordHistory && this.pushHistory()
   }
 
-  public toJSON () {
+  public updatePlaybackWithJSON (json: Partial<PlaybackJSON>, recordHistory = true): void {
+    if (!json.id) throw new Error('Playback id not found in JSON.')
+
+    const playback = this.playbacks.find(p => p.id === json.id)
+    if (!playback) {
+      throw new Error(`Playback with id ${json.id} not found in SceneManager.`)
+    }
+
+    playback.fromJSON(json)
+    this.playbackUpdated(json.id, playback)
+    recordHistory && this.pushHistory()
+  }
+
+  public toJSON (): ProjectJSON {
     return {
       scenes: this.scenes.map(s => s.toJSON()),
       activeScene: this.activeScene?.id,
@@ -512,9 +609,88 @@ export class SceneManager {
     }
   }
 
-  public fromJSON (json: JsonObject) {
-    if (json.scenes && Array.isArray(json.scenes)) {
-      this.scenes = (json.scenes as Partial<SceneJSON>[]).map(s => Scene.fromJSON(s))
+  public fromJSON (json: Partial<ProjectJSON>) {
+    if (json.scenes !== undefined && Array.isArray(json.scenes)) {
+      json.scenes.forEach(s => this.updateSceneWithJSON(s, false))
+      for (const scene of this.scenes.filter(s => !json.scenes!.find(js => js.id === s.id))) {
+        this.removeScene(scene.id, false)
+      }
+    }
+    if (json.activeScene !== undefined) this.setActiveSceneFromId(json.activeScene)
+    if (json.slices !== undefined && Array.isArray(json.slices)) {
+      json.slices.forEach(s => this.updateSliceWithJSON(s, false))
+      for (const slice of this.slices.filter(s => !json.slices!.find(js => js.id === s.id))) {
+        this.removeSlice(slice.id, false)
+      }
+    }
+    if (json.components !== undefined && Array.isArray(json.components)) {
+      json.components.forEach(c => this.updateComponentWithJSON(c, false))
+      for (const component of this.components.filter(c => !json.components!.find(js => js.id === c.id))) {
+        this.removeComponent(component.id, false)
+      }
+    }
+  }
+  // #endregion
+
+  // #region History
+  private history: ProjectJSON[] = []
+  private historyIndex = -1
+  private historyTimeout: NodeJS.Timeout | null = null
+  private maxHistoryLength = 3
+
+  public pushHistory () {
+    if (this.historyTimeout) {
+      clearTimeout(this.historyTimeout)
+    }
+
+    this.historyTimeout = setTimeout(() => {
+      this.historyTimeout = null
+
+      this.history.splice(this.historyIndex + 1)
+      this.history.push(this.toJSON())
+      this.historyIndex++
+
+      // restrict history to 100 entries
+      if (this.history.length > this.maxHistoryLength) {
+        this.history.splice(0, this.history.length - this.maxHistoryLength)
+        this.historyIndex = this.maxHistoryLength - 1
+      }
+
+      console.log('History updated.')
+    }, 500)
+  }
+
+  public pushHistoryNow () {
+    if (this.historyTimeout) {
+      clearTimeout(this.historyTimeout)
+      this.historyTimeout = null
+    }
+
+    this.history.splice(this.historyIndex + 1)
+    this.history.push(this.toJSON())
+    this.historyIndex++
+
+    // restrict history to 100 entries
+    if (this.history.length > 100) {
+      this.history.splice(0, this.history.length - 100)
+      this.historyIndex = 99
+    }
+
+    console.log('History updated.')
+  }
+
+  public undo () {
+    console.log(this.history)
+    if (this.historyIndex > 0) {
+      this.historyIndex--
+      this.fromJSON(this.history[this.historyIndex])
+    }
+  }
+
+  public redo () {
+    if (this.historyIndex < this.history.length - 1) {
+      this.historyIndex++
+      this.fromJSON(this.history[this.historyIndex])
     }
   }
 

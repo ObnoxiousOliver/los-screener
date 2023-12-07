@@ -68,6 +68,8 @@ export class Scene extends TransferableObject {
 
       inner.style.transform = slot.transformMatrix.toString()
 
+      inner.style.display = slot.visible ? 'block' : 'none'
+
       const componentElement = ctx.components.find(c => c.id === slot.componentId)?.render(slot, ctx)
       if (componentElement) {
         inner.shadowRoot!.replaceChildren(componentElement)

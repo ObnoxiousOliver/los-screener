@@ -122,7 +122,7 @@ const bridge: BridgeType = {
     ipcRenderer.send('removeSlice', id)
   },
   onSliceUpdated(callback) {
-    ipcRenderer.on('sliceUpdate', (event, id, slice) => {
+    ipcRenderer.on('sliceUpdate', (_, id, slice) => {
       callback(id, slice)
     })
   },
@@ -138,7 +138,7 @@ const bridge: BridgeType = {
     ipcRenderer.send('removeComponent', id)
   },
   onComponentUpdated(callback) {
-    ipcRenderer.on('componentUpdate', (event, id, component) => {
+    ipcRenderer.on('componentUpdate', (_, id, component) => {
       callback(id, component)
     })
   },
@@ -149,7 +149,7 @@ const bridge: BridgeType = {
     return ipcRenderer.invoke('invokeComponentAction', id, action, args)
   },
   onComponentActionInvoked(callback) {
-    ipcRenderer.on('componentAction', (event, id, action, args) => {
+    ipcRenderer.on('componentAction', (_, id, action, args) => {
       callback(id, action, args)
     })
   },
@@ -167,7 +167,7 @@ const bridge: BridgeType = {
     ipcRenderer.send('removeWindow', canvasId)
   },
   onWindowsUpdated(callback) {
-    ipcRenderer.on('windowUpdate', (event, windows) => {
+    ipcRenderer.on('windowUpdate', (_, windows) => {
       callback(windows)
     })
   },
@@ -201,7 +201,7 @@ const bridge: BridgeType = {
   },
 
   onSceneUpdated(callback) {
-    ipcRenderer.on('sceneUpdate', (event, id, scene) => {
+    ipcRenderer.on('sceneUpdate', (_, id, scene) => {
       callback(id, scene)
     })
   },
@@ -215,10 +215,66 @@ const bridge: BridgeType = {
   },
 
   onActiveSceneChanged(callback) {
-    ipcRenderer.on('activeSceneChanged', (event, id) => {
+    ipcRenderer.on('activeSceneChanged', (_, id) => {
       callback(id)
     })
     ipcRenderer.invoke('getActiveScene').then(callback)
+  },
+
+  // Playback Management
+  onPlaybackUpdated(callback) {
+    ipcRenderer.on('playbackUpdate', (_, id, playback) => {
+      callback(id, playback)
+    })
+  },
+
+  getPlaybacks() {
+    return ipcRenderer.invoke('getPlaybacks')
+  },
+
+  setPlayback(playback) {
+    ipcRenderer.send('setPlayback', playback)
+  },
+
+  removePlayback(id) {
+    ipcRenderer.send('removePlayback', id)
+  },
+
+  setActivePlayback(id) {
+    ipcRenderer.send('setActivePlayback', id)
+  },
+
+  onActivePlaybackChanged(callback) {
+    ipcRenderer.on('activePlaybackChanged', (_, id) => {
+      callback(id)
+    })
+    ipcRenderer.invoke('getActivePlayback').then(callback)
+  },
+
+  // Font Management
+  getFonts() {
+    return ipcRenderer.invoke('getFonts')
+  },
+
+  // History Management
+  pushHistory() {
+    ipcRenderer.send('pushHistory')
+  },
+
+  // Context Menu
+  openContextMenu(template) {
+    ipcRenderer.send('openContextMenu', template)
+  },
+  onContextMenuClicked(callback) {
+    ipcRenderer.on('contextMenuClicked', (_, id) => {
+      callback(id)
+    })
+    return () => {
+      ipcRenderer.removeAllListeners('contextMenuClicked')
+    }
+  },
+  onceContextMenuClosed(callback) {
+    ipcRenderer.once('contextMenuClosed', callback)
   }
 }
 

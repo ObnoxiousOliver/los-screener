@@ -51,6 +51,7 @@ export abstract class Component extends TransferableObject {
   getProperties (ctx: PropertyCtx): Property<any>[] {
     return [
       new Property(
+        'name',
         { type: 'text' },
         'Name',
         () => this.name,
@@ -98,6 +99,7 @@ export interface Plugin {
   name: string
   components: {
     type: string
+    name: string
     fromJSON: (json: JsonObject) => any
   }[]
 }
@@ -113,5 +115,13 @@ export class ComponentFactory {
         ComponentMap[component.type] = component.fromJSON
       }
     }
+  }
+
+  public static getComponents (): {
+    type: string
+    name: string
+    fromJSON: (json: JsonObject) => any
+  }[] {
+    return this.plugins.flatMap((plugin) => plugin.components)
   }
 }

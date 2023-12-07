@@ -9,7 +9,7 @@ export type PropertyOptions = {
 } | {
   type: 'number'
 } | {
-  type: 'boolean'
+  type: 'checkbox'
 } | {
   type: 'vec2'
   labels?: [string, string]
@@ -22,6 +22,10 @@ export type PropertyOptions = {
 } | {
   type: 'action'
   call: () => void
+} | {
+  type: 'color'
+} | {
+  type: 'font'
 }
 
 export interface PropertyCtx {
@@ -30,6 +34,7 @@ export interface PropertyCtx {
 }
 
 export class Property <T> {
+  id: string
   options: PropertyOptions
   label: string
   order?: number
@@ -51,11 +56,13 @@ export class Property <T> {
   }
 
   constructor (
+    id: string,
     options: PropertyOptions,
     label?: string,
     getValue?: () => T,
     setValue?: (value: T) => void,
     order?: number) {
+      this.id = id
       this.options = options
       this.label = label ?? ''
       this.order = order

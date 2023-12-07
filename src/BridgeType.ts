@@ -1,4 +1,5 @@
 import { ComponentJSON } from './screener/Component'
+import { PlaybackJSON } from './screener/Playback'
 import { SceneJSON } from './screener/Scene'
 import { SliceJSON } from './screener/Slice'
 import { SlotJSON } from './screener/Slot'
@@ -40,6 +41,21 @@ export interface BridgeType {
   getScenes (): Promise<SceneJSON[]>
   setActiveScene (id: string): void
   onActiveSceneChanged (callback: (id: string) => void): void
+
+  onPlaybackUpdated (callback: (id: string, playback: PlaybackJSON | null) => void): void
+  getPlaybacks (): Promise<PlaybackJSON[]>
+  setPlayback (playback: PlaybackJSON): void
+  removePlayback (id: string): void
+  setActivePlayback (id: string | null): void
+  onActivePlaybackChanged (callback: (id: string | null) => void): void
+
+  getFonts (): Promise<string[]>
+
+  pushHistory (): void
+
+  openContextMenu (template: (Electron.MenuItemConstructorOptions)[]): void
+  onContextMenuClicked (callback: (id: string) => void): () => void
+  onceContextMenuClosed (callback: () => void): void
 }
 
 export interface BridgeTypeSliceViewer {

@@ -121,6 +121,7 @@ export class Video extends Component {
     return [
       ...super.getProperties(ctx),
       new Property(
+        'src',
         { type: 'text' },
         'Source',
         () => this.src,
@@ -131,6 +132,7 @@ export class Video extends Component {
         }
       ),
       new Property(
+        'fit',
         { type: 'select', options: [
           { label: 'Contain', value: 'contain' },
           { label: 'Cover', value: 'cover' },
@@ -145,6 +147,7 @@ export class Video extends Component {
         }
       ),
       new Property(
+        'volume',
         { type: 'number' },
         'Volume',
         () => this.volume,
@@ -155,6 +158,7 @@ export class Video extends Component {
         }
       ),
       new Property(
+        'play',
         {
           type: 'action',
           call: () => {

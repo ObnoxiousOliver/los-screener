@@ -7,6 +7,7 @@ import { createVuetify } from 'vuetify'
 import colors from 'vuetify/util/colors'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
+import { createPinia } from 'pinia'
 
 const vuetify = createVuetify({
   components,
@@ -16,7 +17,7 @@ const vuetify = createVuetify({
     themes: {
       dark: {
         colors: {
-          'primary': colors.deepPurple.base,
+          'primary': colors.deepPurple.accent2,
           'secondary': colors.teal.accent3
         }
       }
@@ -26,6 +27,7 @@ const vuetify = createVuetify({
 
 createApp(App)
   .use(vuetify)
+  .use(createPinia())
   .mount('#app')
   .$nextTick(() => {
     postMessage({ payload: 'removeLoading' }, '*')

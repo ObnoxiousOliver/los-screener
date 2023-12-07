@@ -38,6 +38,7 @@ watch(() => props.slice.name, (newName) => {
 @use '../style//variables' as v;
 
 .editor-slice-name-input {
+  position: relative;
   min-width: 2rem;
   height: fit-content;
   line-height: 1rem;

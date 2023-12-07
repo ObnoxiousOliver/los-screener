@@ -67,8 +67,8 @@ const handles = computed(() => {
 
   if (isSingleSlot) {
     return {
-      rect: slots[0].rect,
-      crop: slots[0].crop,
+      rect: Rect.clone(slots[0].rect),
+      crop: Margin.clone(slots[0].crop),
       transformMatrix: slots[0].transformMatrix
     }
   }
@@ -94,6 +94,7 @@ function rectHandlesStart () {
 }
 function rectHandlesEnd () {
   startRects = null
+  props.editor.pushHistory()
 }
 
 function rectHandlesUpdate (value: {
@@ -163,7 +164,7 @@ function onPointerleave (e: PointerEvent, slot: Slot) {
 
 function select (e: PointerEvent) {
   if (activeHoveringSlot.value) {
-    props.editor.selectElement(activeHoveringSlot.value, e.shiftKey)
+    props.editor.selectSlot(activeHoveringSlot.value, e.shiftKey)
   }
 }
 </script>

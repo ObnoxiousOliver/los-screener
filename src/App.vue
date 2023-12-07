@@ -1,6 +1,25 @@
 <template>
-  <VApp>
-    <VNavigationDrawer
+  <PanelLayout>
+    <template #left>
+      <FocusPanel>
+        <ComponentList :editor="editor" />
+      </FocusPanel>
+    </template>
+    <template #right>
+      <FocusPanel>
+        right
+      </FocusPanel>
+    </template>
+    <template #bottom>
+      <FocusPanel>
+        bottom
+      </FocusPanel>
+    </template>
+
+    <EditorCanvas :editor="editor" />
+  </PanelLayout>
+
+  <!-- <VNavigationDrawer
       location="bottom"
       permanent
       :width="300"
@@ -57,8 +76,8 @@
           v-for="(selectedPropertiesValue, i) in selectedProperties"
           :key="(i)"
         >
-          <VSwitch
-            v-if="selectedPropertiesValue.options.type === 'boolean'"
+          <VCheckbox
+            v-if="selectedPropertiesValue.options.type === 'checkbox'"
             v-model="selectedPropertiesValue.value"
             :color="'primary'"
             :label="selectedPropertiesValue.label"
@@ -146,87 +165,121 @@
           >
             {{ selectedPropertiesValue.label }}
           </VBtn>
+          <VSelect
+            v-else-if="selectedPropertiesValue.options.type === 'font'"
+            v-model="selectedPropertiesValue.value"
+            :items="useFonts().fonts.map((o) => ({
+              title: o,
+              value: o
+            }))"
+            :label="selectedPropertiesValue.label"
+            variant="outlined"
+          />
         </template>
       </VContainer>
-    </VNavigationDrawer>
-  </VApp>
+    </VNavigationDrawer> -->
 </template>
 
 <script setup lang="ts">
-import ComponentList from './components/ComponentList.vue'
-import { computed , Ref , ref } from 'vue'
-import EditorCanvas from './components/EditorCanvas.vue'
-import { Margin } from './helpers/Margin'
-import { Rect } from './helpers/Rect'
-import { Vec2 } from './helpers/Vec2'
-import { Property } from './screener/Property'
-import Vec4Input from './components/Vec4Input.vue'
-import Vec2Input from './components/Vec2Input.vue'
-import TextInput from './components/TextInput.vue'
+import { Ref , ref } from 'vue'
+// import { Property } from './screener/Property'
 import { ComponentFactory } from './screener/Component'
 import { DefaultPlugin } from './screener/default/defaultPlugin'
 import { Editor } from './editor/Editor'
-import { Window } from './screener/Window'
+import PanelLayout from './components/PanelLayout.vue'
+import EditorCanvas from './components/EditorCanvas.vue'
+import FocusPanel from './components/FocusPanel.vue'
+import ComponentList from './components/ComponentList.vue'
 
-const selectedProperties = computed(() => {
-  if (editor.value.selectedElements.length !== 1) return []
+// const selectedProperties = computed(() => {
+//   if (editor.value.selectedElements.length !== 1) return []
 
-  const slot = editor.value.getSelected()[0]
-  if (!slot) return []
+//   const slice = editor.value.getSelectedSlice()
+//   if (slice) {
+//     return [
+//       new Property(
+//         'name',
+//         { type: 'text' },
+//         'Name',
+//         () => slice.name,
+//         (v) => {
+//           editor.value.sendSliceUpdate(slice.id, {
+//             name: v
+//           })
+//         }
+//       ),
+//       new Property(
+//         'rect',
+//         { type: 'rect' },
+//         'Rect',
+//         () => Rect.clone(slice.rect),
+//         (v) => {
+//           editor.value.sendSliceUpdate(slice.id, {
+//             rect: v.toJSON()
+//           })
+//         }
+//       )
+//     ]
+//   }
 
-  const component = editor.value.getComponent(slot.componentId)
+//   const slot = editor.value.getSelected()[0]
+//   if (!slot) return []
 
-  return [
-    new Property(
-      { type: 'rect' },
-      'Rect',
-      () => Rect.clone(slot.rect),
-      (v) => {
-        editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
-          rect: v.toJSON()
-        })
-      }
-    ),
-    new Property(
-      { type: 'margin' },
-      'Crop',
-      () => Margin.clone(slot.crop),
-      (v) => {
-        editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
-          crop: v.toJSON()
-        })
-      }
-    ),
-    ...(component?.getProperties({
-      callAction: (action, args) => {
-        editor.value.sendComponentAction(slot.componentId, action, args)
-      },
-      update: (json) => {
-        editor.value.sendComponentUpdate(slot.componentId, json)
-      }
-    }) ?? [])
-  ].sort((a, b) => {
-    if (a.order === b.order) return 0
-    if (a.order === undefined) return 1
-    if (b.order === undefined) return -1
-    return a.order > b.order ? 1 : -1
-  })
-})
+//   const component = editor.value.getComponent(slot.componentId)
+
+//   return [
+//     new Property(
+//       'visible',
+//       { type: 'checkbox' },
+//       'Visible',
+//       () => slot.visible,
+//       (v) => {
+//         editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
+//           visible: v
+//         })
+//       }
+//     ),
+//     new Property(
+//       'rect',
+//       { type: 'rect' },
+//       'Rect',
+//       () => Rect.clone(slot.rect),
+//       (v) => {
+//         editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
+//           rect: v.toJSON()
+//         })
+//       }
+//     ),
+//     new Property(
+//       'crop',
+//       { type: 'margin' },
+//       'Crop',
+//       () => Margin.clone(slot.crop),
+//       (v) => {
+//         editor.value.sendSlotUpdate(editor.value.activeScene!.id, slot.id, {
+//           crop: v.toJSON()
+//         })
+//       }
+//     ),
+//     ...(component?.getProperties({
+//       callAction: (action, args) => {
+//         editor.value.sendComponentAction(slot.componentId, action, args)
+//       },
+//       update: (json) => {
+//         editor.value.sendComponentUpdate(slot.componentId, json)
+//       }
+//     }) ?? [])
+//   ].sort((a, b) => {
+//     if (a.order === b.order) return 0
+//     if (a.order === undefined) return 1
+//     if (b.order === undefined) return -1
+//     return a.order > b.order ? 1 : -1
+//   })
+// })
 
 ComponentFactory.registerPlugin(DefaultPlugin)
+// @ts-expect-error Type instantiation is excessively deep and possibly infinite. ts(2589)
 const editor = ref(new Editor(true)) as Ref<Editor>
-
-function setWindows () {
-  editor.value.setWindow(new Window(
-    new Rect(0, 0, 1920, 1080),
-    editor.value.slices[0].id
-  ))
-  editor.value.setWindow(new Window(
-    new Rect(0, 0, 1920, 1080),
-    editor.value.slices[1].id
-  ))
-  editor.value.showWindows()
-}
 </script>
 
 <style lang="scss">

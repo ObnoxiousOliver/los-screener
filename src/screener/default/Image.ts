@@ -79,10 +79,8 @@ export class Image extends Component {
     return [
       ...super.getProperties(ctx),
       new Property(
-        {
-          type: 'text',
-          updateOnBlur: true
-        },
+        'src',
+        { type: 'text' },
         'Source',
         () => this.src,
         (value) => {
@@ -92,10 +90,11 @@ export class Image extends Component {
         }
       ),
       new Property(
+        'fit',
         { type: 'select', options: [
-          { label: 'Contain', value: 'contain' },
-          { label: 'Cover', value: 'cover' },
-          { label: 'Fill', value: 'fill' }
+          { value: 'contain', label: 'Contain' },
+          { value: 'cover', label: 'Cover' },
+          { value: 'fill', label: 'Fill' }
         ] },
         'Fit',
         () => this.fit,

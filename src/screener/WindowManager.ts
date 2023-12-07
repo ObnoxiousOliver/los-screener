@@ -7,6 +7,8 @@ import { Window, WindowJSON } from './Window'
 import { SceneJSON } from './Scene'
 import { Slice, SliceJSON } from './Slice'
 import { SlotJSON } from './Slot'
+import fontList from 'font-list'
+import { ContextMenuTemplate } from '../helpers/ContextMenu'
 
 export class WindowManager {
   private windows: Window[] = []
@@ -31,7 +33,6 @@ export class WindowManager {
 
       SceneManager.getInstance().removeSlice(id)
     })
-
     ipcMain.handle('getSlices', () => {
       return SceneManager.getInstance().getSlices().map(slice => slice.toJSON())
     })
@@ -213,6 +214,86 @@ export class WindowManager {
 
       SceneManager.getInstance().setActiveSceneFromId(sceneId)
     })
+
+    ipcMain.on('setPlayback', (_, playback: any) => {
+      if (typeof playback !== 'object') {
+        console.error('Error while setting playback: playback is not an object')
+        return
+      }
+
+      SceneManager.getInstance().updatePlaybackWithJSON(playback)
+    })
+
+    ipcMain.on('removePlayback', (_, id: any) => {
+      if (typeof id !== 'string') {
+        console.error('Error while removing playback: id is not a string')
+        return
+      }
+
+      SceneManager.getInstance().removePlayback(id)
+    })
+
+    ipcMain.handle('getPlaybacks', () => {
+      return SceneManager.getInstance().getPlaybacks().map(playback => playback.toJSON())
+    })
+
+    ipcMain.on('setActivePlayback', (_, id: string) => {
+      if (typeof id !== 'string') {
+        console.error('Error while setting active playback: id is not a string')
+        return
+      }
+
+      SceneManager.getInstance().setActivePlaybackFromId(id)
+    })
+
+    ipcMain.handle('getActivePlayback', () => {
+      return SceneManager.getInstance().getActivePlayback()?.id
+    })
+
+    ipcMain.handle('getFonts', async () => {
+      return await fontList.getFonts({
+        disableQuoting: true
+      })
+    })
+
+    ipcMain.on('pushHistory', () => {
+      SceneManager.getInstance().pushHistory()
+    })
+
+    ipcMain.on('openContextMenu', (event, template: ContextMenuTemplate[]) => {
+      if (!Array.isArray(template)) {
+        console.error('Error while opening context menu: template is not an array')
+        return
+      }
+      let willClose = false
+
+      function addClick (menu: ContextMenuTemplate[]) {
+        for (const item of menu) {
+          if (item.id) {
+            item.click = () => {
+              event.reply('contextMenuClicked', item.id)
+              if (willClose) {
+                event.reply('contextMenuClosed')
+              }
+            }
+          }
+
+          if (item.submenu) {
+            addClick(item.submenu)
+          }
+        }
+      }
+
+      addClick(template)
+
+      const menu = Menu.buildFromTemplate(template)
+      menu.on('menu-will-close', () => {
+        willClose = true
+      })
+      menu.popup({
+        window: mainWin ?? undefined
+      })
+    })
   }
 
   createBrowserWindow (window: Window) {
@@ -286,7 +367,9 @@ export class WindowManager {
 
       const menu = Menu.buildFromTemplate([
         {
-          label: 'Toggle DevTools',
+          label: win.webContents.isDevToolsOpened() ? 'Close DevTools' : 'Open DevTools',
+          type: 'checkbox',
+          checked: win.webContents.isDevToolsOpened(),
           click: () => {
             if (!win.webContents.isDevToolsOpened()) {
               win.webContents.openDevTools({
@@ -422,7 +505,7 @@ export class WindowManager {
   // }
 
   updateSlice (id: string, slice: SliceJSON | null) {
-    console.log(`Updating slice ${id}`)
+    // console.log(`Updating slice ${id}`)
     const windows = this.windows.filter(w => w.sliceId === id)
     for (const win of windows) {
       this.browserWindows[win.id]?.webContents.send('sliceUpdate', slice)
@@ -431,7 +514,7 @@ export class WindowManager {
   }
 
   updateComponent (id: string, component: ComponentJSON | null) {
-    console.log(`Updating component ${id}`)
+    // console.log(`Updating component ${id}`)
     for (const win of Object.values(this.browserWindows)) {
       win.webContents.send('componentUpdate', id, component)
     }
@@ -439,7 +522,7 @@ export class WindowManager {
   }
 
   updateScene (id: string, scene: SceneJSON | null) {
-    console.log(`Updating scene ${id}`)
+    // console.log(`Updating scene ${id}`)
 
     for (const win of Object.values(this.browserWindows)) {
       win.webContents.send('sceneUpdate', scene)
@@ -448,11 +531,24 @@ export class WindowManager {
   }
 
   updateActiveScene (id: string) {
-    console.log('Updating active scene', id)
+    // console.log('Updating active scene', id)
     mainWin?.webContents.send('activeSceneChanged', id)
     for (const win of Object.values(this.browserWindows)) {
       win.webContents.send('sceneUpdate', SceneManager.getInstance().getActiveScene().toJSON())
     }
+  }
+
+  updatePlayback (id: string, playback: any) {
+    // console.log(`Updating playback ${id}`)
+
+    for (const win of Object.values(this.browserWindows)) {
+      win.webContents.send('playbackUpdate', id, playback)
+    }
+    mainWin?.webContents.send('playbackUpdate', id, playback)
+  }
+
+  updateActivePlayback (id: string | null) {
+    mainWin?.webContents.send('activePlaybackChanged', id)
   }
 
   invokeComponentAction (id: string, action: string, args: any[]) {

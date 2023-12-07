@@ -2,6 +2,8 @@ import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron'
 import { release } from 'node:os'
 import { join } from 'node:path'
 import { WindowManager } from '../../screener/WindowManager'
+import { readFile, writeFile } from 'fs/promises'
+import { SceneManager } from '../../screener/SceneManager'
 
 // The built directory structure
 //
@@ -44,19 +46,41 @@ const url = process.env.VITE_DEV_SERVER_URL
 const indexHtml = join(process.env.DIST, 'index.html')
 
 async function createWindow() {
+  let bounds: {
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    maximized: boolean
+  } | undefined
+  try {
+    bounds = JSON.parse(await readFile(join(app.getPath('appData'), 'bounds.json'), 'utf-8'))
+  } catch (error) {
+    console.error(error)
+  }
+
   mainWin = new BrowserWindow({
     title: 'Main window',
     icon: join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
       preload,
-      // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
-      // Consider using contextBridge.exposeInMainWorld
-      // Read more on https://www.electronjs.org/docs/latest/tutorial/context-isolation
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false
-    }
+    },
+    width: bounds?.width ?? undefined,
+    height: bounds?.height ?? undefined,
+    x: bounds?.x ?? undefined,
+    y: bounds?.y ?? undefined
   })
+
+  if (bounds?.maximized) {
+    mainWin.maximize()
+  }
+  bounds = {
+    ...mainWin.getBounds(),
+    maximized: mainWin.isMaximized()
+  }
 
   // mainWin.setMenuBarVisibility(false)
 
@@ -80,7 +104,28 @@ async function createWindow() {
     if (url.startsWith('https:')) shell.openExternal(url)
     return { action: 'deny' }
   })
-  // win.webContents.on('will-navigate', (event, url) => { }) #344
+
+  mainWin.on('resize', updateBounds)
+  mainWin.on('move', updateBounds)
+  mainWin.on('maximize', updateBounds)
+  mainWin.on('unmaximize', updateBounds)
+  function updateBounds() {
+    if (!mainWin) return
+    if (mainWin.isMaximized()) {
+      if (!bounds) return
+      bounds.maximized = true
+    } else {
+      bounds = {
+        ...mainWin.getBounds(),
+        maximized: false
+      }
+    }
+  }
+
+  mainWin.on('close', async () => {
+    if (!mainWin) return
+    await writeFile(join(app.getPath('appData'), 'bounds.json'), JSON.stringify(bounds))
+  })
 }
 
 app.whenReady().then(() => {
@@ -102,8 +147,8 @@ app.whenReady().then(() => {
     {
       label: 'Edit',
       submenu: [
-        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
-        { label: 'Redo', accelerator: 'CmdOrCtrl+Shift+Z', role: 'redo' },
+        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', click: () => { SceneManager.getInstance().undo() } },
+        { label: 'Redo', accelerator: 'CmdOrCtrl+Shift+Z', click: () => { SceneManager.getInstance().redo() } },
         { type: 'separator' },
         { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
         { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
