@@ -10,6 +10,14 @@ export interface ComponentOptions {
   name: string
 }
 
+export interface InvokeComponentActionContext {
+  isEditor: boolean
+  media?: {
+    playAudio(src: string, time: number): void,
+    interactBrowserView(id: string): void
+  }
+}
+
 export interface ComponentJSON extends JsonObject {
   id: string
   name: string
@@ -39,13 +47,13 @@ export abstract class Component extends TransferableObject {
 
   public abstract render (slot: Slot, ctx: RenderCtx): HTMLElement
 
-  protected actions: Record<string, (...args: any) => void> = {}
-  public call (name: string, ...args: any[]): void {
+  protected actions: Record<string, (ctx: InvokeComponentActionContext, ...args: any) => void> = {}
+  public call (name: string, ctx: InvokeComponentActionContext, ...args: any[]): void {
     const action = this.actions[name]
     if (!action) {
       throw new Error(`Action ${name} not found in component ${this.type}`)
     }
-    action(...args)
+    action(ctx, ...args)
   }
 
   getProperties (ctx: PropertyCtx): Property<any>[] {
@@ -93,6 +101,12 @@ export async function requestMedia (id: string, src: string) {
   if (!document) throw new Error('Method not available in this environment. Must be in a browser.')
 
   return await bridge.requestMedia(id, src)
+}
+
+export async function requestBrowserView (id: string, url: string, width: number, height: number, zoomFactor: number) {
+  if (!document) throw new Error('Method not available in this environment. Must be in a browser.')
+
+  return await bridge.requestBrowserView(id, url, width, height, zoomFactor)
 }
 
 export interface Plugin {

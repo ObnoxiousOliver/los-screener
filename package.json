@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@mdi/font": "^7.3.67",
+    "@types/ffprobe": "^1.1.8",
     "@types/mime": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
@@ -37,10 +38,12 @@
     "vue-tsc": "^1.8.8"
   },
   "dependencies": {
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@vueuse/core": "^10.6.1",
     "font-list": "^1.5.1",
     "material-design-icons-iconfont": "^6.7.0",
     "mime": "^3.0.0",
+    "node-ffprobe": "^3.0.0",
     "pinia": "^2.1.7",
     "vuetify": "^3.4.2"
   }

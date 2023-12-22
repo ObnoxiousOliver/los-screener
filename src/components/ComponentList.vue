@@ -1,11 +1,19 @@
 <template>
-  <div class="component-list">
-    <VList>
+  <div class="pa-2 d-flex flex-column h-100">
+    <h2 class="mb-2 mx-1 text-h6">
+      Components
+    </h2>
+    <VList
+      nav
+      density="compact"
+      class="bg-grey-darken-5 flex-grow-1"
+      rounded="lg"
+    >
       <ComponentListItem
         v-for="element in elements"
         :key="element.id"
         :element="element"
-        :editor="props.editor"
+        :editor="editor"
       />
     </VList>
   </div>
@@ -41,10 +49,3 @@ const elements = computed(() => {
   return elements
 })
 </script>
-
-<style scoped lang="scss">
-.component-list {
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-</style>

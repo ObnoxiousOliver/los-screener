@@ -48,10 +48,14 @@ export class Track extends TransferableObject {
   component: string
   range: Range
 
-  constructor (component: string, range: Range) {
+  constructor (component: string, range?: Partial<Range>) {
     super()
     this.component = component
-    this.range = range
+    this.range = {
+      offset: range?.offset ?? 0,
+      duration: range?.duration ?? null,
+      start: range?.start ?? 0
+    }
   }
 
   public toJSON (): TrackJSON {
@@ -219,7 +223,7 @@ export class Track extends TransferableObject {
 
 export interface Range extends JsonObject {
   offset: number
-  duration: number
+  duration: number | null
   start: number
 }
 

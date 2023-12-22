@@ -3,7 +3,7 @@
     class="scene-overlay"
   >
     <template
-      v-for="slot in scene.slots"
+      v-for="slot in scene.slots.filter((slot) => slot.visible !== false)"
       :key="slot.id"
     >
       <div

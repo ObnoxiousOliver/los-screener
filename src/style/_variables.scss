@@ -3,3 +3,4 @@
 
 $primary: map-get(s.$deep-purple, 'accent-2');
 $secondary: map-get(s.$teal, 'accent-3');
+$bg-dark: darken(map-get(s.$grey, 'darken-4'), 7%);

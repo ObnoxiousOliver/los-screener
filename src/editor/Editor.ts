@@ -28,7 +28,7 @@ export class Editor {
 
   private live: boolean = false
   private nonLiveUpdates: {
-    type: 'slice' | 'component' | 'scene' | 'slot'
+    type: 'slice' | 'component' | 'scene' | 'slot' | 'playback'
     id: string
     data: any
   }[] = []
@@ -59,10 +59,11 @@ export class Editor {
       bridge.onWindowsUpdated(this.updateAllWindows.bind(this))
 
       bridge.onActiveSceneChanged((id) => {
-        if (id === this._activeScene.id) return
         console.log('Active scene changed', id)
+        if (id !== this._activeScene.id) {
+          this.deselectAll()
+        }
 
-        this.deselectAll()
         this._activeScene.id = id
         this._activeScene.scene = this.getScene(id)
       })
@@ -82,7 +83,9 @@ export class Editor {
           return
         }
 
-        component.call(action, ...(args ?? []))
+        component.call(action, {
+          isEditor: true
+        },...(args ?? []))
       })
     }
   }
@@ -340,6 +343,7 @@ export class Editor {
   }
 
   public sendComponentUpdate (id: string, c: Partial<ComponentJSON> | null) {
+    console.log('Sending component update', c)
     if (this.live) {
       if (c === null) {
         bridge.removeComponent(id)
@@ -358,6 +362,46 @@ export class Editor {
       bridge.invokeComponentAction(id, action, args)
     } else {
       console.warn('Cannot invoke component action in non-live mode')
+    }
+  }
+
+  public sendSceneUpdate (id: string, s: Partial<SceneJSON> | null) {
+    if (this.live) {
+      if (s === null) {
+        bridge.removeScene(id)
+      } else {
+        s.id = id
+        bridge.setScene(s)
+      }
+    } else {
+      const scene = this.getScene(id)
+      if (!scene) {
+        console.error(`Scene ${id} not found`)
+        return
+      }
+
+      this.nonLiveUpdates.push({ type: 'scene', id, data: scene.toJSON() })
+      this.updateScene(id, scene.toJSON())
+    }
+  }
+
+  public sendPlaybackUpdate (id: string, pb: Partial<PlaybackJSON> | null) {
+    if (this.live) {
+      if (pb === null) {
+        bridge.removePlayback(id)
+      } else {
+        pb.id = id
+        bridge.setPlayback(pb)
+      }
+    } else {
+      const playback = this.playbacks.find((p) => p.id === id)
+      if (!playback) {
+        console.error(`Playback ${id} not found`)
+        return
+      }
+
+      this.nonLiveUpdates.push({ type: 'playback', id, data: playback.toJSON() })
+      this.updatePlayback(id, playback.toJSON())
     }
   }
 
@@ -462,6 +506,8 @@ export class Editor {
       name: 'New ' + ComponentFactory.getComponents().find((c) => c.type === type)?.name ?? 'Component',
       ...options
     })
+
+    console.log(c)
     this.sendComponentUpdate(c.id, c.toJSON())
     return c
   }
@@ -498,6 +544,29 @@ export class Editor {
     const s = Slice.fromJSON(slice ?? {})
     bridge.setSlice(s.toJSON())
     return s
+  }
+
+  // Playbacks
+  public getPlayback (id: string): Playback | undefined {
+    return this.playbacks.find((p) => p.id === id)
+  }
+
+  public removePlayback (id: string) {
+    this.sendPlaybackUpdate(id, null)
+  }
+
+  public createPlayback (playback?: Partial<PlaybackJSON>) {
+    const p = Playback.fromJSON(playback ?? {})
+    bridge.setPlayback(p.toJSON())
+    return p
+  }
+
+  public setActivePlayback (id: string) {
+    bridge.setActivePlayback(id)
+  }
+
+  public startPlayback () {
+    bridge.startPlayback()
   }
 
   // History

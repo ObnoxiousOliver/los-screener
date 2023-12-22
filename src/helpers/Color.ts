@@ -55,7 +55,7 @@ export class Color extends TransferableObject {
   }
 
   public toHex (): string {
-    return '#' + [this.r, this.g, this.b].map(c => c.toString(16).padStart(2, '0')).join('')
+    return '#' + [this.r, this.g, this.b, Math.round(this.a * 255)].map(c => c.toString(16).padStart(2, '0')).join('')
   }
 
   public toCSS (): string {
@@ -129,13 +129,16 @@ export class Color extends TransferableObject {
   public static fromHex (hex: string): Color {
     if (hex.startsWith('#')) hex = hex.substring(1)
     if (hex.length === 3) hex = hex.split('').map(c => c + c).join('')
-    if (hex.length !== 6) throw new Error('Invalid hex color')
+    if (hex.length === 4) hex = hex.split('').map(c => c + c).join('')
+    if (hex.length === 6) hex = hex + 'ff'
+    if (hex.length !== 8) throw new Error('Invalid hex value')
 
     const r = parseInt(hex.substring(0, 2), 16)
     const g = parseInt(hex.substring(2, 4), 16)
     const b = parseInt(hex.substring(4, 6), 16)
+    const a = parseInt(hex.substring(6, 8), 16) / 255
 
-    return new Color(r, g, b)
+    return new Color(r, g, b, a)
   }
 
   public static fromRGB (r: number, g: number, b: number, a?: number): Color {

@@ -33,8 +33,9 @@ export interface BridgeType {
   hideWindows (): void
 
   requestMedia (id: string, src: string): Promise<string | null>
+  requestBrowserView (id: string, src: string, width: number, height: number, zoomFactor: number): Promise<string | null>
 
-  setScene (scene: SceneJSON): void
+  setScene (scene: Partial<SceneJSON>): void
   createScene (canvasIds?: string[]): void
   removeScene (id: string): void
   onSceneUpdated (callback: (id: string, scene: SceneJSON | null) => void): void
@@ -44,10 +45,15 @@ export interface BridgeType {
 
   onPlaybackUpdated (callback: (id: string, playback: PlaybackJSON | null) => void): void
   getPlaybacks (): Promise<PlaybackJSON[]>
-  setPlayback (playback: PlaybackJSON): void
+  setPlayback (playback: Partial<PlaybackJSON>): void
   removePlayback (id: string): void
   setActivePlayback (id: string | null): void
   onActivePlaybackChanged (callback: (id: string | null) => void): void
+  startPlayback (): void
+  stopPlayback (): void
+  pausePlayback (): void
+  resumePlayback (): void
+  seekPlayback (time: number): void
 
   getFonts (): Promise<string[]>
 

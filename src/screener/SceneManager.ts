@@ -12,6 +12,10 @@ import { join } from 'path'
 import mime from 'mime'
 import { id } from '../helpers/Id'
 import { Slot, SlotJSON } from './Slot'
+import { Video } from './default/Video'
+
+import probe from 'node-ffprobe'
+import ffprobeInstaller from '@ffprobe-installer/ffprobe'
 
 export interface ProjectJSON {
   scenes: SceneJSON[]
@@ -43,6 +47,14 @@ export class SceneManager {
 
     this.checkActiveScene()
     this.pushHistoryNow()
+
+    const video = new Video({
+      name: 'Video',
+      src: 'C:\\Users\\Obnix\\Documents\\LoS-Preview-Opening-LED-Wand3.mp4'
+    })
+
+    this.addComponent(video)
+    this.updateSlotWithJSON(defaultScene.id, new Slot(new Rect(0, 0, 1920, 1080), video.id).toJSON())
   }
 
   // #region Updates
@@ -190,8 +202,8 @@ export class SceneManager {
 
   public addScene (scene: Scene): void {
     this.scenes.push(scene)
-    this.setActiveScene(scene)
     this.sceneUpdated(scene.id, scene)
+    this.setActiveScene(scene)
   }
 
   public getScenes (): Scene[] {
@@ -212,6 +224,11 @@ export class SceneManager {
   }
 
   public removeScene (id: string, recordHistory = true): void {
+    if (this.scenes.length <= 1) {
+      console.warn('Cannot remove last scene.')
+      return
+    }
+
     const sceneToActive = this.scenes[this.scenes.findIndex(s => s.id === id) - 1] ?? this.scenes[this.scenes.findIndex(s => s.id === id) + 1]
     this.scenes = this.scenes.filter(s => s.id !== id)
     this.sceneUpdated(id, null)
@@ -324,6 +341,12 @@ export class SceneManager {
     return this.components.find(c => c.id === id)
   }
 
+  public addComponent (component: Component, recordHistory = true): void {
+    this.components.push(component)
+    this.componentUpdated(component.id, component)
+    recordHistory && this.pushHistoryNow()
+  }
+
   public removeComponent (id: string, recordHistory = true): void {
     const index = this.components.findIndex(c => c.id === id)
     if (index > -1) {
@@ -375,9 +398,6 @@ export class SceneManager {
     if (this.playbackInterval) {
       clearInterval(this.playbackInterval)
     }
-
-    this.playbackInterval = setInterval(() => {
-    }, 1000 / 60)
   }
 
   public setActivePlayback (playback: Playback | null): void {
@@ -409,6 +429,7 @@ export class SceneManager {
   private mediaCache: Record<string, {
     value: string | null
     promise: Promise<string | null> | null
+    meta: Record<string, any>
     components: string[]
   }> = {}
   public async requestMedia (componentId: string, src: string, noCache = false) {
@@ -451,6 +472,7 @@ export class SceneManager {
           this.mediaCache[src] = {
             value: filePath,
             promise: null,
+            meta: await this.getMeta(filePath),
             components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
           }
           return filePath
@@ -468,6 +490,7 @@ export class SceneManager {
           this.mediaCache[src] = {
             value: src,
             promise: null,
+            meta: await this.getMeta(src),
             components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
           }
 
@@ -484,10 +507,59 @@ export class SceneManager {
     this.mediaCache[src] = {
       value: this.mediaCache[src]?.value ?? null,
       promise,
-      components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
+      meta: this.mediaCache[src]?.meta ?? {},
+      components: [
+        ...this.mediaCache[src]?.components ?? [],
+        componentId
+      ].filter((v, i, a) => a.indexOf(v) === i)
     }
 
     return await promise
+  }
+
+  private async getMeta (path: string): Promise<Record<string, any>> {
+    const type = mime.getType(path)
+
+    const meta: Record<string, any> = {}
+    let res: any
+    probe.FFPROBE_PATH = ffprobeInstaller.path
+
+    switch (type) {
+      case 'image/png':
+      case 'image/jpeg':
+      case 'image/gif':
+        break
+      case 'video/mp4':
+      case 'video/webm':
+      case 'video/ogg':
+        res = await probe(path, { path: ffprobeInstaller.path })
+        console.log(res)
+        meta.duration = (res.streams as {
+          duration: string | undefined
+        }[]).reduce((acc, cur) => {
+          if (cur.duration) {
+            const duration = parseFloat(cur.duration)
+            return Math.max(acc, isNaN(duration) ? 0 : duration)
+          }
+          return acc
+        }, 0) * 1000
+        break
+    }
+
+    console.log(meta)
+    return meta
+  }
+
+  public async requestMediaMeta (src: string): Promise<Record<string, any>> {
+    if (this.mediaCache[src]) {
+      if (this.mediaCache[src].promise) {
+        await this.mediaCache[src].promise
+      }
+      return this.mediaCache[src].meta
+    }
+
+    await this.requestMedia('', src)
+    return this.mediaCache[src].meta
   }
   // #endregion
 
@@ -636,7 +708,7 @@ export class SceneManager {
   private history: ProjectJSON[] = []
   private historyIndex = -1
   private historyTimeout: NodeJS.Timeout | null = null
-  private maxHistoryLength = 3
+  private maxHistoryLength = 100
 
   public pushHistory () {
     if (this.historyTimeout) {
@@ -693,6 +765,8 @@ export class SceneManager {
       this.fromJSON(this.history[this.historyIndex])
     }
   }
+
+  // #endregion
 
   // Singleton
   private static sm: SceneManager

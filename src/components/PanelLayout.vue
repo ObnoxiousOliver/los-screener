@@ -1,12 +1,22 @@
 <template>
   <div class="panel-layout">
-    <PanelSplit direction="vertical">
-      <PanelSplit :fill="1">
+    <PanelSplit
+      direction="vertical"
+      :widths="[400]"
+    >
+      <PanelSplit
+        :fill="1"
+      >
         <slot name="left" />
         <slot />
         <slot name="right" />
       </PanelSplit>
-      <slot name="bottom" />
+      <PanelSplit
+        :fill="1"
+      >
+        <slot name="bottom-left" />
+        <slot name="bottom-right" />
+      </PanelSplit>
     </PanelSplit>
   </div>
 </template>

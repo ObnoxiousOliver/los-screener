@@ -1,7 +1,8 @@
 // import { Editor } from '../../editor/Editor'
-import { Component, ComponentJSON, ComponentOptions, RenderCtx, requestMedia } from '../Component'
+import { Component, ComponentJSON, ComponentOptions, InvokeComponentActionContext, RenderCtx, requestMedia } from '../Component'
 import { Property, PropertyCtx } from '../Property'
 import { Slot } from '../Slot'
+import { SceneManager } from '../SceneManager'
 
 export type VideoFit = 'contain' | 'cover' | 'fill'
 
@@ -11,6 +12,7 @@ export interface VideoOptions {
   volume: number
   startTime: number
   playing: boolean
+  duration: number
 }
 
 export const VideoDefaults: VideoOptions = {
@@ -18,7 +20,8 @@ export const VideoDefaults: VideoOptions = {
   objectFit: 'contain',
   volume: 1,
   startTime: 0,
-  playing: false
+  playing: false,
+  duration: 0
 }
 
 export interface VideoJSON extends ComponentJSON {
@@ -28,6 +31,7 @@ export interface VideoJSON extends ComponentJSON {
   volume: number
   startTime: number
   playing: boolean
+  duration: number
 }
 
 export class Video extends Component {
@@ -37,6 +41,7 @@ export class Video extends Component {
   volume: number
   startTime: number
   playing: boolean
+  duration: number
 
   constructor (options: Partial<VideoOptions & ComponentOptions> = {}) {
     super('video', options)
@@ -45,14 +50,26 @@ export class Video extends Component {
     this.volume = options.volume ?? VideoDefaults.volume
     this.startTime = options.startTime ?? VideoDefaults.startTime
     this.playing = options.playing ?? VideoDefaults.playing
+    this.duration = options.duration ?? VideoDefaults.duration
+
+    if (!document) {
+      SceneManager.getInstance().requestMediaMeta(this.src).then((meta) => {
+        this.duration = meta.duration
+      })
+    }
   }
 
-  protected actions: Record<string, () => void> = {
-    play: () => {
+  protected actions: Record<string, (ctx: InvokeComponentActionContext, ...args: any) => void> = {
+    play: (ctx, time: number) => {
       this.playing = true
+      this.startTime = Date.now() - (time ?? 0) * 1000
 
-      for (const id in this.elements) {
-        this.elements[id].play()
+      if (ctx.isEditor) {
+        for (const id in this.elements) {
+          this.elements[id].play()
+        }
+      } else {
+        ctx.media?.playAudio(this.src, time)
       }
     },
     pause: () => {
@@ -76,12 +93,6 @@ export class Video extends Component {
       element.style.width = '100%'
       element.style.height = '100%'
       this.elements[slot.id] = element
-
-      element.addEventListener('play', () => {
-        ctx.editor?.sendComponentUpdate(this.id, {
-          startTime: Date.now() - element.currentTime * 1000
-        })
-      })
     }
 
     if (element.dataset.src !== this.src) {
@@ -122,7 +133,7 @@ export class Video extends Component {
       ...super.getProperties(ctx),
       new Property(
         'src',
-        { type: 'text' },
+        { type: 'text', updateOnBlur: true },
         'Source',
         () => this.src,
         (value) => {
@@ -178,7 +189,8 @@ export class Video extends Component {
       fit: this.fit,
       volume: this.volume,
       startTime: this.startTime,
-      playing: this.playing
+      playing: this.playing,
+      duration: this.duration
     }
   }
 
@@ -189,6 +201,7 @@ export class Video extends Component {
     if (json.volume !== undefined && this.volume !== json.volume) this.volume = json.volume
     if (json.startTime !== undefined && this.startTime !== json.startTime) this.startTime = json.startTime
     if (json.playing !== undefined && this.playing !== json.playing) this.playing = json.playing
+    if (json.duration !== undefined && this.duration !== json.duration) this.duration = json.duration
   }
 
   static fromJSON (json: Partial<VideoJSON>) {
@@ -199,7 +212,8 @@ export class Video extends Component {
       objectFit: json.fit,
       volume: json.volume,
       startTime: json.startTime,
-      playing: json.playing
+      playing: json.playing,
+      duration: json.duration
     })
   }
 }

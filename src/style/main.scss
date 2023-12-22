@@ -1,1 +1,7 @@
 @use 'vuetify';
+@use './variables' as v;
+
+.bg-grey-darken-5 {
+  background-color: v.$bg-dark !important;
+  color: #fff !important;
+}

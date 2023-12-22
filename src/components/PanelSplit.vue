@@ -58,7 +58,7 @@ const emit = defineEmits<{
 
 const widths = ref(props.widths)
 watchEffect(() => {
-  const w = Array(panels.value.length).fill(200)
+  const w = Array(panels.value.length).fill(300)
   for (let i = 0; i < widths.value.length; i++) {
     w[i] = widths.value[i]
   }
@@ -66,6 +66,7 @@ watchEffect(() => {
   emit('update:widths', widths.value)
 })
 
+const MIN_WIDTH = 150
 const root = ref<HTMLElement>()
 onMounted(() => {
   const observer = new ResizeObserver(() => {
@@ -75,7 +76,7 @@ onMounted(() => {
       ? root.value!.clientWidth
       : root.value!.clientHeight) / computedWidths)
 
-    widths.value = widths.value.map((w) => Math.max(200, w * scaleFactor))
+    widths.value = widths.value.map((w) => Math.max(MIN_WIDTH, w * scaleFactor))
   })
   observer.observe(root.value!)
 
@@ -121,7 +122,7 @@ function onDividerMouseDown (e: PointerEvent, index: number) {
 
     const maxSize = (props.direction === 'horizontal' ? root.value!.clientWidth : root.value!.clientHeight) - computedWidths
 
-    widths.value[index] = Math.max(200, Math.min(maxSize, widths.value[index]))
+    widths.value[index] = Math.max(MIN_WIDTH, Math.min(maxSize, widths.value[index]))
   }
 
   const onUp = () => {
@@ -163,6 +164,7 @@ function onDividerMouseDown (e: PointerEvent, index: number) {
 
   &__divider {
     position: relative;
+    touch-action: none;
 
     &::before {
       content: '';

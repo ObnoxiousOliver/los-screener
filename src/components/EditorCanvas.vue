@@ -199,15 +199,15 @@ function centerSlides () {
 }
 
 function onWheel (e: WheelEvent) {
-  console.log(e)
   if (!root.value) return
   if (grabbing.value) return
 
   if (e.ctrlKey) {
-    const newScale = scale.value * (1 - Math.min(500, e.deltaY / 200))
+    const newScale = scale.value * Math.exp(Math.min(.5, Math.max(-.5, -e.deltaY / 200)))
+    console.log(Math.exp(e.deltaY / 1000))
     scaleFromPointOnScreen(new Vec2(e.clientX, e.clientY), newScale)
   } else {
-    const delta = new Vec2(e.deltaX, e.deltaY)
+    const delta = new Vec2(e.deltaX, e.deltaY).mul(0.5)
     translate.value = translate.value.sub(delta)
   }
 }
@@ -342,7 +342,7 @@ function ctxMenu (e: MouseEvent) {
         transparent 8%,
         transparent 100%
       ),
-      #111;
+      v.$bg-dark;
 
     background-size:
       calc(var(--grid-size) * var(--grid-scale))

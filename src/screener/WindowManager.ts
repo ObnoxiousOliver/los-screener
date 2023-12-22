@@ -9,6 +9,7 @@ import { Slice, SliceJSON } from './Slice'
 import { SlotJSON } from './Slot'
 import fontList from 'font-list'
 import { ContextMenuTemplate } from '../helpers/ContextMenu'
+import { BrowserView } from './BrowserView'
 
 export class WindowManager {
   private windows: Window[] = []
@@ -57,7 +58,7 @@ export class WindowManager {
         console.error('Error while setting component: component is not an object')
         return
       }
-
+      console.log('Setting component', component)
       SceneManager.getInstance().updateComponentWithJSON(component)
     })
     ipcMain.on('removeComponent', (_, id: any) => {
@@ -151,6 +152,7 @@ export class WindowManager {
     ipcMain.on('hideWindows', () => {
       this.hideWindows()
     })
+
     ipcMain.handle('requestMedia', async (_, id: any, src: any) => {
       if (typeof id !== 'string') {
         console.error('Error while requesting media: id is not a string')
@@ -165,6 +167,41 @@ export class WindowManager {
 
       console.log(`Requesting media ${id} from ${src}`)
       return await SceneManager.getInstance().requestMedia(id, src)
+    })
+    ipcMain.handle('requestBrowserView', async (_, id: any, src: any, width: any, height: any, zoomFactor: any) => {
+      if (typeof id !== 'string') {
+        console.error('Error while requesting browser view: id is not a string')
+
+        return null
+      }
+      if (typeof src !== 'string') {
+        console.error('Error while requesting browser view: src is not a string')
+
+        return null
+      }
+      if (typeof width !== 'number') {
+        console.error('Error while requesting browser view: width is not a number')
+
+        return null
+      }
+      if (typeof height !== 'number') {
+        console.error('Error while requesting browser view: height is not a number')
+
+        return null
+      }
+      if (typeof zoomFactor !== 'number') {
+        console.error('Error while requesting browser view: zoomFactor is not a number')
+
+        return null
+      }
+
+      console.log(`Requesting browser view ${id} from ${src}`)
+      return await BrowserView.requestBrowserView(id, {
+        url: src,
+        width,
+        height,
+        zoomFactor
+      })
     })
 
     ipcMain.on('setScene', (_, scene: any) => {
@@ -559,12 +596,23 @@ export class WindowManager {
       throw new Error(`Component ${id} not found`)
     }
 
-    component.call(action, ...args)
-
     for (const win of Object.values(this.browserWindows)) {
       win.webContents.send('componentAction', id, action, ...(args ?? []))
     }
     mainWin?.webContents.send('componentAction', id, action, ...(args ?? []))
+
+    component.call(action, {
+      isEditor: false,
+      media: {
+        playAudio: (src: string, time: number) => {
+          console.log(src, time)
+        },
+        interactBrowserView: (id: string) => {
+          BrowserView.show(id)
+        }
+      }
+    },...args)
+
   }
 
   setWindow (window: WindowJSON) {

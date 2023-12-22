@@ -70,7 +70,9 @@ async function createWindow() {
     width: bounds?.width ?? undefined,
     height: bounds?.height ?? undefined,
     x: bounds?.x ?? undefined,
-    y: bounds?.y ?? undefined
+    y: bounds?.y ?? undefined,
+    minHeight: 600,
+    minWidth: 800
   })
 
   if (bounds?.maximized) {
@@ -80,8 +82,6 @@ async function createWindow() {
     ...mainWin.getBounds(),
     maximized: mainWin.isMaximized()
   }
-
-  // mainWin.setMenuBarVisibility(false)
 
   if (process.env.VITE_DEV_SERVER_URL) { // electron-vite-vue#298
     mainWin.loadURL(url)
@@ -212,6 +212,10 @@ app.whenReady().then(() => {
     {
       label: 'Windows',
       submenu: [
+        { label: 'Setup...', click: () => {
+          mainWin?.webContents.send('menu-action', 'setup')
+        } },
+        { type: 'separator' },
         { label: 'Toggle Visibility', click: () => { console.log('Toggle Visibility') } },
         { label: 'Always On Top', click: () => { console.log('Set All Always On Top') } },
         { label: 'Lock All Positions', click: () => { console.log('Lock All Positions') } },
@@ -229,6 +233,7 @@ app.whenReady().then(() => {
   ]))
 
   createWindow()
+
 })
 
 app.on('window-all-closed', () => {

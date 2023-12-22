@@ -186,6 +186,9 @@ const bridge: BridgeType = {
   requestMedia(id, src) {
     return ipcRenderer.invoke('requestMedia', id, src)
   },
+  requestBrowserView(id, src, width, height, zoomFactor) {
+    return ipcRenderer.invoke('requestBrowserView', id, src, width, height, zoomFactor)
+  },
 
   // Scene Management
   setScene(scene) {
@@ -249,6 +252,22 @@ const bridge: BridgeType = {
       callback(id)
     })
     ipcRenderer.invoke('getActivePlayback').then(callback)
+  },
+
+  startPlayback() {
+    ipcRenderer.send('startPlayback')
+  },
+  stopPlayback() {
+    ipcRenderer.send('stopPlayback')
+  },
+  pausePlayback() {
+    ipcRenderer.send('pausePlayback')
+  },
+  resumePlayback() {
+    ipcRenderer.send('resumePlayback')
+  },
+  seekPlayback(time) {
+    ipcRenderer.send('seekPlayback', time)
   },
 
   // Font Management
