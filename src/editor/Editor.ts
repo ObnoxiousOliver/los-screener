@@ -557,6 +557,7 @@ export class Editor {
 
   public createPlayback (playback?: Partial<PlaybackJSON>) {
     const p = Playback.fromJSON(playback ?? {})
+    console.log(p.toJSON())
     bridge.setPlayback(p.toJSON())
     return p
   }

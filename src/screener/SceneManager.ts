@@ -50,7 +50,7 @@ export class SceneManager {
 
     const video = new Video({
       name: 'Video',
-      src: 'C:\\Users\\Obnix\\Documents\\LoS-Preview-Opening-LED-Wand3.mp4'
+      src: 'E:\\LoS 2023\\Test.mp4'
     })
 
     this.addComponent(video)
@@ -386,17 +386,38 @@ export class SceneManager {
   }
 
   private activePlayback: Playback | null = null
-  private playbackInterval: NodeJS.Timeout | null = null
-  public startPlayback (id: string): void {
-    const playback = this.playbacks.find(p => p.id === id)
-    if (!playback) {
-      throw new Error(`Playback with id ${id} not found in SceneManager.`)
+  private playbackTimeouts: NodeJS.Timeout[] = []
+  public startPlayback (): void {
+    for (const interval of this.playbackTimeouts) {
+      clearTimeout(interval)
     }
 
-    this.activePlayback = playback
+    if (!this.activePlayback) {
+      console.warn('No active playback found in SceneManager.')
+      return
+    }
 
-    if (this.playbackInterval) {
-      clearInterval(this.playbackInterval)
+    const pb = this.activePlayback
+
+    console.log('Starting playback.', pb.timeline.tracks)
+
+    for (const track of pb.timeline.tracks) {
+      console.log('Starting track.', track)
+      if (track.range.offset > 0) {
+        WindowManager.getInstance().invokeComponentAction(track.component, 'pause', [])
+
+        this.playbackTimeouts.push(setTimeout(() => {
+          WindowManager.getInstance().invokeComponentAction(track.component, 'play', [track.range.start])
+        }, track.range.offset * 1000))
+      } else {
+        WindowManager.getInstance().invokeComponentAction(track.component, 'play', [track.range.start])
+      }
+
+      if (track.range.duration) {
+        this.playbackTimeouts.push(setTimeout(() => {
+          WindowManager.getInstance().invokeComponentAction(track.component, 'pause', [])
+        }, (track.range.offset + track.range.duration) * 1000))
+      }
     }
   }
 
@@ -429,7 +450,6 @@ export class SceneManager {
   private mediaCache: Record<string, {
     value: string | null
     promise: Promise<string | null> | null
-    meta: Record<string, any>
     components: string[]
   }> = {}
   public async requestMedia (componentId: string, src: string, noCache = false) {
@@ -472,7 +492,6 @@ export class SceneManager {
           this.mediaCache[src] = {
             value: filePath,
             promise: null,
-            meta: await this.getMeta(filePath),
             components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
           }
           return filePath
@@ -490,7 +509,6 @@ export class SceneManager {
           this.mediaCache[src] = {
             value: src,
             promise: null,
-            meta: await this.getMeta(src),
             components: [...this.mediaCache[src]?.components ?? [], componentId].filter((v, i, a) => a.indexOf(v) === i)
           }
 
@@ -507,7 +525,6 @@ export class SceneManager {
     this.mediaCache[src] = {
       value: this.mediaCache[src]?.value ?? null,
       promise,
-      meta: this.mediaCache[src]?.meta ?? {},
       components: [
         ...this.mediaCache[src]?.components ?? [],
         componentId
@@ -546,21 +563,9 @@ export class SceneManager {
         break
     }
 
-    console.log(meta)
     return meta
   }
 
-  public async requestMediaMeta (src: string): Promise<Record<string, any>> {
-    if (this.mediaCache[src]) {
-      if (this.mediaCache[src].promise) {
-        await this.mediaCache[src].promise
-      }
-      return this.mediaCache[src].meta
-    }
-
-    await this.requestMedia('', src)
-    return this.mediaCache[src].meta
-  }
   // #endregion
 
   // #region JSON
@@ -660,15 +665,15 @@ export class SceneManager {
   }
 
   public updatePlaybackWithJSON (json: Partial<PlaybackJSON>, recordHistory = true): void {
-    if (!json.id) throw new Error('Playback id not found in JSON.')
-
-    const playback = this.playbacks.find(p => p.id === json.id)
+    let playback = this.playbacks.find(p => p.id === json.id)
     if (!playback) {
-      throw new Error(`Playback with id ${json.id} not found in SceneManager.`)
+      playback = Playback.fromJSON(json)
+      this.playbacks.push(playback)
+    } else {
+      playback.fromJSON(json)
     }
 
-    playback.fromJSON(json)
-    this.playbackUpdated(json.id, playback)
+    this.playbackUpdated(playback.id, playback)
     recordHistory && this.pushHistory()
   }
 

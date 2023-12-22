@@ -77,7 +77,7 @@
                 Cancel
               </VBtn>
               <VBtn
-                @click=" createPlayback(); newPlaybackDialog = false"
+                @click="createPlayback(); newPlaybackDialog = false"
               >
                 Create
               </VBtn>
@@ -89,15 +89,23 @@
     <VList
       class="bg-grey-darken-5 font-size-1 flex-grow-1"
       rounded="lg"
-    />
+    >
+      <VListItem
+        v-for="pb in editor.playbacks"
+        :key="pb.id"
+        :class="{
+          'bg-grey-darken-1': pb.id === editor.activePlayback?.id
+        }"
+        :title="pb.id"
+        @click="editor.setActivePlayback(pb.id); editor.startPlayback()"
+      />
+    </VList>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Editor } from '../editor/Editor'
-import { Playback } from '../screener/Playback'
-import { Timeline, Track } from '../screener/Timeline'
 
 const props = defineProps<{
   editor: Editor
@@ -111,14 +119,29 @@ const vid2 = ref<string | null>()
 function createPlayback () {
   if (!vid1.value || !vid2.value) return
 
-  const pb = new Playback(
-    new Timeline([
-      new Track(vid1.value),
-      new Track(vid2.value)
-    ])
-  )
-
-  props.editor.sendPlaybackUpdate(pb.id, pb.toJSON())
+  const pb = props.editor.createPlayback({
+    timeline: {
+      tracks: [
+        {
+          component: vid1.value,
+          range: {
+            start: 4,
+            offset: 4,
+            duration: null
+          }
+        },
+        {
+          component: vid2.value,
+          range: {
+            start: 0,
+            offset: 0,
+            duration: null
+          }
+        }
+      ]
+    }
+  })
+  console.log(pb)
 }
 </script>
 

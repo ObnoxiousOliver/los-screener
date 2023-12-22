@@ -2,7 +2,8 @@
 import { Component, ComponentJSON, ComponentOptions, InvokeComponentActionContext, RenderCtx, requestMedia } from '../Component'
 import { Property, PropertyCtx } from '../Property'
 import { Slot } from '../Slot'
-import { SceneManager } from '../SceneManager'
+
+declare const document: Document | undefined
 
 export type VideoFit = 'contain' | 'cover' | 'fill'
 
@@ -51,12 +52,6 @@ export class Video extends Component {
     this.startTime = options.startTime ?? VideoDefaults.startTime
     this.playing = options.playing ?? VideoDefaults.playing
     this.duration = options.duration ?? VideoDefaults.duration
-
-    if (!document) {
-      SceneManager.getInstance().requestMediaMeta(this.src).then((meta) => {
-        this.duration = meta.duration
-      })
-    }
   }
 
   protected actions: Record<string, (ctx: InvokeComponentActionContext, ...args: any) => void> = {
@@ -65,7 +60,9 @@ export class Video extends Component {
       this.startTime = Date.now() - (time ?? 0) * 1000
 
       if (ctx.isEditor) {
+        const currentTime = (Date.now() - this.startTime) / 1000
         for (const id in this.elements) {
+          this.elements[id].currentTime = currentTime
           this.elements[id].play()
         }
       } else {
@@ -111,6 +108,11 @@ export class Video extends Component {
         if (element.getAttribute('src') !== src ?? '') {
           element.dataset.src = this.src
           element.src = src ?? ''
+
+          element.addEventListener('loadedmetadata', () => ctx.editor
+            ?.sendComponentUpdate(this.id, {
+              duration: element.duration
+            }), { once: true })
         }
 
         if (this.playing) {
@@ -137,6 +139,8 @@ export class Video extends Component {
         'Source',
         () => this.src,
         (value) => {
+          if (this.src === value) return
+
           const json = this.toJSON()
           json.src = value
           ctx.update?.(json)
@@ -152,6 +156,8 @@ export class Video extends Component {
         'Fit',
         () => this.fit,
         (value) => {
+          if (this.fit === value) return
+
           const json = this.toJSON()
           json.fit = value
           ctx.update?.(json)
@@ -163,6 +169,8 @@ export class Video extends Component {
         'Volume',
         () => this.volume,
         (value) => {
+          if (this.volume === value) return
+
           const json = this.toJSON()
           json.volume = value
           ctx.update?.(json)
@@ -177,6 +185,12 @@ export class Video extends Component {
           }
         },
         'Play'
+      ),
+      new Property(
+        'duration',
+        { type: 'number' },
+        'Duration',
+        () => this.duration
       )
     ]
   }

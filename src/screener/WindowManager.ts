@@ -260,7 +260,6 @@ export class WindowManager {
 
       SceneManager.getInstance().updatePlaybackWithJSON(playback)
     })
-
     ipcMain.on('removePlayback', (_, id: any) => {
       if (typeof id !== 'string') {
         console.error('Error while removing playback: id is not a string')
@@ -269,11 +268,9 @@ export class WindowManager {
 
       SceneManager.getInstance().removePlayback(id)
     })
-
     ipcMain.handle('getPlaybacks', () => {
       return SceneManager.getInstance().getPlaybacks().map(playback => playback.toJSON())
     })
-
     ipcMain.on('setActivePlayback', (_, id: string) => {
       if (typeof id !== 'string') {
         console.error('Error while setting active playback: id is not a string')
@@ -282,9 +279,11 @@ export class WindowManager {
 
       SceneManager.getInstance().setActivePlaybackFromId(id)
     })
-
     ipcMain.handle('getActivePlayback', () => {
       return SceneManager.getInstance().getActivePlayback()?.id
+    })
+    ipcMain.on('startPlayback', () => {
+      SceneManager.getInstance().startPlayback()
     })
 
     ipcMain.handle('getFonts', async () => {
@@ -597,9 +596,9 @@ export class WindowManager {
     }
 
     for (const win of Object.values(this.browserWindows)) {
-      win.webContents.send('componentAction', id, action, ...(args ?? []))
+      win.webContents.send('componentAction', id, action, args ?? [])
     }
-    mainWin?.webContents.send('componentAction', id, action, ...(args ?? []))
+    mainWin?.webContents.send('componentAction', id, action, args ?? [])
 
     component.call(action, {
       isEditor: false,
@@ -611,8 +610,7 @@ export class WindowManager {
           BrowserView.show(id)
         }
       }
-    },...args)
-
+    }, ...args)
   }
 
   setWindow (window: WindowJSON) {

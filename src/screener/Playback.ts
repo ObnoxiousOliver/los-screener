@@ -7,13 +7,17 @@ export interface PlaybackJSON extends JsonObject {
   timeline: TimelineJSON
 }
 
+export interface PlaybackOptions {
+  id: string
+}
+
 export class Playback extends TransferableObject {
   id: string
   timeline: Timeline
 
-  constructor (timeline?: Timeline) {
+  constructor (timeline?: Timeline, options?: Partial<PlaybackOptions>) {
     super()
-    this.id = id()
+    this.id = options?.id ?? id()
     this.timeline = timeline ?? new Timeline()
   }
 
@@ -32,7 +36,10 @@ export class Playback extends TransferableObject {
 
   static fromJSON (json: Partial<PlaybackJSON>): Playback {
     return new Playback(
-      (json.timeline && Timeline.fromJSON(json.timeline)) ?? undefined
+      (json.timeline && Timeline.fromJSON(json.timeline)) ?? undefined,
+      {
+        id: json.id
+      }
     )
   }
 }
