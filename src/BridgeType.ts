@@ -50,9 +50,7 @@ export interface BridgeType {
   setActivePlayback (id: string | null): void
   onActivePlaybackChanged (callback: (id: string | null) => void): void
   startPlayback (): void
-  stopPlayback (): void
   pausePlayback (): void
-  resumePlayback (): void
   seekPlayback (time: number): void
 
   getFonts (): Promise<string[]>

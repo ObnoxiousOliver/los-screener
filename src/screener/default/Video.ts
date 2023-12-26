@@ -55,23 +55,23 @@ export class Video extends Component {
   }
 
   protected actions: Record<string, (ctx: InvokeComponentActionContext, ...args: any) => void> = {
-    play: (ctx, time: number) => {
+    play: (ctx, time?: number) => {
       this.playing = true
       this.startTime = Date.now() - (time ?? 0) * 1000
 
       if (ctx.isEditor) {
-        const currentTime = (Date.now() - this.startTime) / 1000
         for (const id in this.elements) {
-          this.elements[id].currentTime = currentTime
+          this.elements[id].currentTime = time ?? 0
           this.elements[id].play()
         }
       } else {
-        ctx.media?.playAudio(this.src, time)
+        ctx.media?.playAudio(this.src, time ?? 0)
       }
     },
-    pause: () => {
+    pause: (ctx, time?: number) => {
       for (const id in this.elements) {
         this.elements[id].pause()
+        typeof time === 'number' && (this.elements[id].currentTime = time ?? 0)
       }
     }
   }
@@ -185,12 +185,6 @@ export class Video extends Component {
           }
         },
         'Play'
-      ),
-      new Property(
-        'duration',
-        { type: 'number' },
-        'Duration',
-        () => this.duration
       )
     ]
   }

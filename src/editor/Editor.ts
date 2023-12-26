@@ -562,12 +562,20 @@ export class Editor {
     return p
   }
 
-  public setActivePlayback (id: string) {
+  public setActivePlayback (id: string | null) {
     bridge.setActivePlayback(id)
   }
 
   public startPlayback () {
     bridge.startPlayback()
+  }
+
+  public pausePlayback () {
+    bridge.pausePlayback()
+  }
+
+  public seekPlayback (time: number) {
+    bridge.seekPlayback(time)
   }
 
   // History

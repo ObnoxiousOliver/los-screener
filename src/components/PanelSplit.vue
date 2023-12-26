@@ -145,7 +145,6 @@ function onDividerMouseDown (e: PointerEvent, index: number) {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: map-get(v.$grey, 'darken-3');
 
   &--vertical {
     flex-direction: column;
@@ -154,7 +153,6 @@ function onDividerMouseDown (e: PointerEvent, index: number) {
   &__panel {
     flex: 0 0 auto;
     overflow: hidden;
-    background: map-get(v.$grey, 'darken-4');
     position: relative;
 
     &--fill {
@@ -163,6 +161,7 @@ function onDividerMouseDown (e: PointerEvent, index: number) {
   }
 
   &__divider {
+    background: map-get(v.$grey, 'darken-3');
     position: relative;
     touch-action: none;
 

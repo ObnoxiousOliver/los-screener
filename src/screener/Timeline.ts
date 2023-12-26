@@ -61,7 +61,11 @@ export class Track extends TransferableObject {
   public toJSON (): TrackJSON {
     return {
       component: this.component,
-      range: this.range
+      range: {
+        offset: this.range.offset,
+        duration: this.range.duration,
+        start: this.range.start
+      }
     }
   }
 

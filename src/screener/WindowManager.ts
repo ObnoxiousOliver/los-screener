@@ -272,7 +272,7 @@ export class WindowManager {
       return SceneManager.getInstance().getPlaybacks().map(playback => playback.toJSON())
     })
     ipcMain.on('setActivePlayback', (_, id: string) => {
-      if (typeof id !== 'string') {
+      if (typeof id !== 'string' && id !== null) {
         console.error('Error while setting active playback: id is not a string')
         return
       }
@@ -284,6 +284,17 @@ export class WindowManager {
     })
     ipcMain.on('startPlayback', () => {
       SceneManager.getInstance().startPlayback()
+    })
+    ipcMain.on('pausePlayback', () => {
+      SceneManager.getInstance().pausePlayback()
+    })
+    ipcMain.on('seekPlayback', (_, time: number) => {
+      if (typeof time !== 'number') {
+        console.error('Error while seeking playback: time is not a number')
+        return
+      }
+
+      SceneManager.getInstance().seekPlayback(time)
     })
 
     ipcMain.handle('getFonts', async () => {

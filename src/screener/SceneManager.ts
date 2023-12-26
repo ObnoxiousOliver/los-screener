@@ -387,7 +387,8 @@ export class SceneManager {
 
   private activePlayback: Playback | null = null
   private playbackTimeouts: NodeJS.Timeout[] = []
-  public startPlayback (): void {
+
+  public startPlayback (onlySetTime: boolean = false): void {
     for (const interval of this.playbackTimeouts) {
       clearTimeout(interval)
     }
@@ -399,30 +400,82 @@ export class SceneManager {
 
     const pb = this.activePlayback
 
-    console.log('Starting playback.', pb.timeline.tracks)
+    console.log('Starting playback.', pb.time)
+
+    pb.startTime = Date.now() / 1000 - pb.time
 
     for (const track of pb.timeline.tracks) {
       console.log('Starting track.', track)
-      if (track.range.offset > 0) {
+
+      const offset = track.range.offset - pb.time
+
+      if (offset > 0) {
         WindowManager.getInstance().invokeComponentAction(track.component, 'pause', [])
 
         this.playbackTimeouts.push(setTimeout(() => {
-          WindowManager.getInstance().invokeComponentAction(track.component, 'play', [track.range.start])
-        }, track.range.offset * 1000))
+          WindowManager.getInstance().invokeComponentAction(track.component, onlySetTime ? 'pause' : 'play', [track.range.start])
+        }, offset * 1000))
       } else {
-        WindowManager.getInstance().invokeComponentAction(track.component, 'play', [track.range.start])
+        WindowManager.getInstance().invokeComponentAction(track.component, onlySetTime ? 'pause' : 'play', [track.range.start - offset])
       }
 
-      if (track.range.duration) {
+      if (onlySetTime) continue
+
+      if (track.range.duration && offset + track.range.duration > 0) {
         this.playbackTimeouts.push(setTimeout(() => {
           WindowManager.getInstance().invokeComponentAction(track.component, 'pause', [])
-        }, (track.range.offset + track.range.duration) * 1000))
+        }, (offset + track.range.duration) * 1000))
       }
     }
+
+    this.playbackUpdated(pb.id, pb)
+  }
+
+  pausePlayback (): void {
+    for (const interval of this.playbackTimeouts) {
+      clearTimeout(interval)
+    }
+
+    if (!this.activePlayback) {
+      console.warn('No active playback found in SceneManager.')
+      return
+    }
+
+    console.log('Pausing playback.')
+
+    const pb = this.activePlayback
+
+    for (const track of pb.timeline.tracks) {
+      WindowManager.getInstance().invokeComponentAction(track.component, 'pause', [])
+    }
+
+    if (pb.startTime) {
+      pb.time = Date.now() / 1000 - pb.startTime
+      pb.startTime = null
+    }
+
+    this.playbackUpdated(pb.id, pb)
+  }
+
+  seekPlayback (time: number): void {
+    if (!this.activePlayback) {
+      console.warn('No active playback found in SceneManager.')
+      return
+    }
+
+    this.activePlayback.time = time
+    this.startPlayback(true)
   }
 
   public setActivePlayback (playback: Playback | null): void {
+    if (this.activePlayback?.id === playback?.id) return
+
     this.activePlayback = playback
+
+    if (playback) {
+      playback.time = 0
+    }
+
     WindowManager.getInstance().updateActivePlayback(playback?.id ?? null)
   }
 

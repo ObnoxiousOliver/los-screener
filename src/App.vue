@@ -295,6 +295,8 @@ const editor = ref(new Editor(true)) as Ref<Editor>
 </script>
 
 <style lang="scss">
+@use './style/variables' as v;
+
 html, body, #app {
   overflow: hidden;
 
@@ -302,6 +304,10 @@ html, body, #app {
     width: 0;
     height: 0;
   }
+}
+
+.v-application {
+  background: map-get(v.$grey, 'darken-4') !important;
 }
 
 .v-overlay__scrim {

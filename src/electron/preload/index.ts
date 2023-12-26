@@ -257,14 +257,8 @@ const bridge: BridgeType = {
   startPlayback() {
     ipcRenderer.send('startPlayback')
   },
-  stopPlayback() {
-    ipcRenderer.send('stopPlayback')
-  },
   pausePlayback() {
     ipcRenderer.send('pausePlayback')
-  },
-  resumePlayback() {
-    ipcRenderer.send('resumePlayback')
   },
   seekPlayback(time) {
     ipcRenderer.send('seekPlayback', time)
